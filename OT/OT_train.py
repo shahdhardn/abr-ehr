@@ -11,24 +11,38 @@ from torch.autograd import Variable
 import torchvision.transforms as transforms
 from data_utils import *
 from resnet import *
+from prepare_fiddle import *
 import shutil
 from Sinkhorn_distance import SinkhornDistance
 from Sinkhorn_distance_fl import SinkhornDistance as SinkhornDistance_fl
 from torch.utils.data import TensorDataset, DataLoader
 
+# TODO change feature size
+FEAURE_SIZE = 7841
+# FEAURE_SIZE = 157
+
 parser = argparse.ArgumentParser(description="Imbalanced Example")
+# TODO dataset
+# parser.add_argument(
+#     "--dataset",
+#     default="cifar10",
+#     type=str,
+#     help="dataset (cifar10[default] or cifar100)",
+# )
 parser.add_argument(
     "--dataset",
-    default="cifar10",
+    default="mimic",
     type=str,
-    help="dataset (cifar10[default] or cifar100)",
+    help="mimic",
 )
 parser.add_argument(
     "--cost", default="combined", type=str, help="[combined, label, feature, twoloss]"
 )
-parser.add_argument(
-    "--meta_set", default="prototype", type=str, help="[whole, prototype]"
-)
+# TODO meta set
+# parser.add_argument(
+#     "--meta_set", default="prototype", type=str, help="[whole, prototype]"
+# )
+parser.add_argument("--meta_set", default="whole", type=str, help="[whole, prototype]")
 parser.add_argument(
     "--batch-size",
     type=int,
@@ -36,13 +50,26 @@ parser.add_argument(
     metavar="N",
     help="input batch size for training (default: 16)",
 )
-parser.add_argument("--num_classes", type=int, default=10)
+# TODO number of classes
+# parser.add_argument("--num_classes", type=int, default=10)
+parser.add_argument("--num_classes", type=int, default=2)
+# TODO number of meta data
+# parser.add_argument(
+#     "--num_meta", type=int, default=10, help="The number of meta data for each class."
+# )
 parser.add_argument(
-    "--num_meta", type=int, default=10, help="The number of meta data for each class."
+    "--num_meta",
+    type=int,
+    default=FEAURE_SIZE,
+    help="The number of meta data for each class.",
 )
 parser.add_argument("--imb_factor", type=float, default=0.005)
+# TODO change number of epochs
+# parser.add_argument(
+#     "--epochs", type=int, default=250, metavar="N", help="number of epochs to train"
+# )
 parser.add_argument(
-    "--epochs", type=int, default=250, metavar="N", help="number of epochs to train"
+    "--epochs", type=int, default=1, metavar="N", help="number of epochs to train"
 )
 parser.add_argument(
     "--lr", "--learning-rate", default=2e-5, type=float, help="initial learning rate"
@@ -82,14 +109,33 @@ use_cuda = not args.no_cuda and torch.cuda.is_available()
 torch.manual_seed(args.seed)
 device = torch.device("cuda" if use_cuda else "cpu")
 
-train_data_meta, train_data, test_dataset = build_dataset(args.dataset, args.num_meta)
+# TODO mimic dataset/
+# train_data_meta, train_data, test_dataset = build_dataset(args.dataset, args.num_meta)
 
-print(f"length of meta dataset:{len(train_data_meta)}")
-print(f"length of train dataset: {len(train_data)}")
+# print(f"length of meta dataset:{len(train_data_meta)}")
+# print(f"length of train dataset: {len(train_data)}")
 
-train_loader = torch.utils.data.DataLoader(
-    train_data, batch_size=args.batch_size, shuffle=True, **kwargs
-)
+# train_loader = torch.utils.data.DataLoader(
+#     train_data, batch_size=args.batch_size, shuffle=True, **kwargs
+# )
+
+
+# imbalanced_train_dataset, imbalanced_train_loader, class_counts = temp_create_dataset(
+#     100, args.batch_size
+# )
+# validation_dataset, validation_loader, class_counts = temp_create_dataset(
+#     40, args.batch_size
+# )
+# test_dataset, test_loader, class_counts = temp_create_dataset(30, args.batch_size)
+
+data_splits, data_loaders, class_counts = load_dataset()
+
+imbalanced_train_dataset = data_splits["train"]
+validation_dataset = data_splits["val"]
+test_dataset = data_splits["test"]
+imbalanced_train_loader = data_loaders["train"]
+validation_loader = data_loaders["val"]
+test_loader = data_loaders["test"]
 
 np.random.seed(42)
 random.seed(42)
@@ -101,50 +147,54 @@ data_list = {}
 
 for j in range(args.num_classes):
     data_list[j] = [
-        i for i, label in enumerate(train_loader.dataset.targets) if label == j
+        i
+        for i, label in enumerate(imbalanced_train_loader.dataset.targets)
+        if label == j
     ]
 
 
-img_num_list = get_img_num_per_cls(
-    args.dataset, args.imb_factor, args.num_meta * args.num_classes
-)
-print(img_num_list)
-print(sum(img_num_list))
+# TODO uncomment this
+img_num_list = class_counts
+# img_num_list = get_img_num_per_cls(
+#     args.dataset, args.imb_factor, args.num_meta * args.num_classes
+# )
+# print(img_num_list)
+# print(sum(img_num_list))
 
-im_data = {}
-idx_to_del = []
-for cls_idx, img_id_list in data_list.items():
-    random.shuffle(img_id_list)
-    img_num = img_num_list[int(cls_idx)]
-    im_data[cls_idx] = img_id_list[img_num:]
-    idx_to_del.extend(img_id_list[img_num:])
+# im_data = {}
+# idx_to_del = []
+# for cls_idx, img_id_list in data_list.items():
+#     random.shuffle(img_id_list)
+#     img_num = img_num_list[int(cls_idx)]
+#     im_data[cls_idx] = img_id_list[img_num:]
+#     idx_to_del.extend(img_id_list[img_num:])
 
-print(len(idx_to_del))
-imbalanced_train_dataset = copy.deepcopy(train_data)
-imbalanced_train_dataset.targets = np.delete(
-    train_loader.dataset.targets, idx_to_del, axis=0
-)
-imbalanced_train_dataset.data = np.delete(train_loader.dataset.data, idx_to_del, axis=0)
-print(len(imbalanced_train_dataset))
+# print(len(idx_to_del))
+# imbalanced_train_dataset = copy.deepcopy(train_data)
+# imbalanced_train_dataset.targets = np.delete(
+#     train_loader.dataset.targets, idx_to_del, axis=0
+# )
+# imbalanced_train_dataset.data = np.delete(train_loader.dataset.data, idx_to_del, axis=0)
+# print(len(imbalanced_train_dataset))
 
-imbalanced_train_loader = DataLoader(
-    new_dataset(imbalanced_train_dataset, train=True),
-    batch_size=args.batch_size,
-    shuffle=True,
-    **kwargs,
-)
-validation_loader = DataLoader(
-    new_dataset(train_data_meta, train=True),
-    batch_size=args.num_classes * args.num_meta,
-    shuffle=False,
-    **kwargs,
-)
-test_loader = DataLoader(
-    new_dataset(test_dataset, train=False),
-    batch_size=args.batch_size,
-    shuffle=False,
-    **kwargs,
-)
+# imbalanced_train_loader = DataLoader(
+#     new_dataset(imbalanced_train_dataset, train=True),
+#     batch_size=args.batch_size,
+#     shuffle=True,
+#     **kwargs,
+# )
+# validation_loader = DataLoader(
+#     new_dataset(train_data_meta, train=True),
+#     batch_size=args.num_classes * args.num_meta,
+#     shuffle=False,
+#     **kwargs,
+# )
+# test_loader = DataLoader(
+#     new_dataset(test_dataset, train=False),
+#     batch_size=args.batch_size,
+#     shuffle=False,
+#     **kwargs,
+# )
 
 best_prec1 = 0
 
@@ -183,7 +233,8 @@ def main():
         if args.imb_factor == 0.005:
             ckpt_path = r"checkpoint/ours/pretrain/.."
 
-    model = build_model(load_pretrain=True, ckpt_path=ckpt_path)
+    # TODO True
+    model = build_model(load_pretrain=False, ckpt_path=ckpt_path)
     optimizer_a = torch.optim.SGD(
         [model.linear.weight, model.linear.bias],
         args.lr,
@@ -195,7 +246,7 @@ def main():
     cudnn.benchmark = True
     criterion_classifier = nn.CrossEntropyLoss(reduction="none").cuda()
 
-    for epoch in range(160, args.epochs):
+    for epoch in range(0, args.epochs):
 
         train_OT(
             imbalanced_train_loader,
@@ -269,7 +320,6 @@ def train_OT(
     feature_val, _ = model(val_data_bycls)
 
     for i, batch in enumerate(train_loader):
-
         inputs, labels, ids = tuple(t.to("cuda") for t in batch)
         labels = labels.squeeze()
         labels_onehot = to_categorical(labels).cuda()
@@ -399,7 +449,8 @@ def validate(val_loader, model):
 
 def build_model(load_pretrain, ckpt_path=None):
     # TODO change model to emnlp
-    model = ResNet32(args.dataset == "cifar10" and 10 or 100)
+    # model = ResNet32(args.dataset == "cifar10" and 10 or 100)
+    model = BinaryClassification(num_classes=2, num_features=FEAURE_SIZE)
 
     if load_pretrain == True:
         checkpoint = torch.load(ckpt_path)
@@ -446,6 +497,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
+# TODO calc AUC
 def accuracy(output, target, topk=(1,)):
     maxk = max(topk)
     batch_size = target.size(0)
@@ -459,7 +511,6 @@ def accuracy(output, target, topk=(1,)):
         correct_k = correct[:k].view(-1).float().sum(0)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
-
 
 def save_checkpoint(args, state, is_best):
     path = "checkpoint/ours/"

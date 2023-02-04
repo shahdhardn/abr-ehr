@@ -16,14 +16,14 @@ class resnet_attention(nn.Module):
     def __init__(self, enc_hid_dim=64, dec_hid_dim=100):
         super(resnet_attention, self).__init__()
 
-        self.attn = nn.Linear(enc_hid_dim , dec_hid_dim, bias=True)
+        self.attn = nn.Linear(enc_hid_dim, dec_hid_dim, bias=True)
         self.v = nn.Linear(dec_hid_dim, 1, bias=False)
 
     def forward(self, s):
         energy = torch.tanh(self.attn(s))
         attention = self.v(energy)
 
-        return  F.softmax(attention, dim=0)
+        return F.softmax(attention, dim=0)
 
 
 class MetaModule(nn.Module):
@@ -37,27 +37,29 @@ class MetaModule(nn.Module):
     def named_submodules(self):
         return []
 
-    def named_params(self, curr_module=None, memo=None, prefix=''):
+    def named_params(self, curr_module=None, memo=None, prefix=""):
         if memo is None:
             memo = set()
 
-        if hasattr(curr_module, 'named_leaves'):
+        if hasattr(curr_module, "named_leaves"):
             for name, p in curr_module.named_leaves():
                 if p is not None and p not in memo:
                     memo.add(p)
-                    yield prefix + ('.' if prefix else '') + name, p
+                    yield prefix + ("." if prefix else "") + name, p
         else:
             for name, p in curr_module._parameters.items():
                 if p is not None and p not in memo:
                     memo.add(p)
-                    yield prefix + ('.' if prefix else '') + name, p
+                    yield prefix + ("." if prefix else "") + name, p
 
         for mname, module in curr_module.named_children():
-            submodule_prefix = prefix + ('.' if prefix else '') + mname
+            submodule_prefix = prefix + ("." if prefix else "") + mname
             for name, p in self.named_params(module, memo, submodule_prefix):
                 yield name, p
 
-    def update_params(self, lr_inner, first_order=False, source_params=None, detach=False):
+    def update_params(
+        self, lr_inner, first_order=False, source_params=None, detach=False
+    ):
         if source_params is not None:
             for tgt, src in zip(self.named_params(self), source_params):
                 name_t, param_t = tgt
@@ -80,10 +82,10 @@ class MetaModule(nn.Module):
                     self.set_param(self, name, param)
 
     def set_param(self, curr_mod, name, param):
-        if '.' in name:
-            n = name.split('.')
+        if "." in name:
+            n = name.split(".")
             module_name = n[0]
-            rest = '.'.join(n[1:])
+            rest = ".".join(n[1:])
             for name, mod in curr_mod.named_children():
                 if module_name == name:
                     self.set_param(mod, rest, param)
@@ -107,21 +109,22 @@ class MetaLinear(MetaModule):
         super().__init__()
         ignore = nn.Linear(*args, **kwargs)
 
-        self.register_buffer('weight', to_var(ignore.weight.data, requires_grad=True))
-        self.register_buffer('bias', to_var(ignore.bias.data, requires_grad=True))
+        self.register_buffer("weight", to_var(ignore.weight.data, requires_grad=True))
+        self.register_buffer("bias", to_var(ignore.bias.data, requires_grad=True))
 
     def forward(self, x):
         return F.linear(x, self.weight, self.bias)
 
     def named_leaves(self):
-        return [('weight', self.weight), ('bias', self.bias)]
+        return [("weight", self.weight), ("bias", self.bias)]
+
 
 class MetaLinear_Norm(MetaModule):
     def __init__(self, *args, **kwargs):
         super().__init__()
         temp = nn.Linear(*args, **kwargs)
         temp.weight.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
-        self.register_buffer('weight', to_var(temp.weight.data.t(), requires_grad=True))
+        self.register_buffer("weight", to_var(temp.weight.data.t(), requires_grad=True))
         self.weight.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
 
     def forward(self, x):
@@ -129,7 +132,7 @@ class MetaLinear_Norm(MetaModule):
         return out
 
     def named_leaves(self):
-        return [('weight', self.weight)]
+        return [("weight", self.weight)]
 
 
 class MetaConv2d(MetaModule):
@@ -145,18 +148,26 @@ class MetaConv2d(MetaModule):
         self.groups = ignore.groups
         self.kernel_size = ignore.kernel_size
 
-        self.register_buffer('weight', to_var(ignore.weight.data, requires_grad=True))
+        self.register_buffer("weight", to_var(ignore.weight.data, requires_grad=True))
 
         if ignore.bias is not None:
-            self.register_buffer('bias', to_var(ignore.bias.data, requires_grad=True))
+            self.register_buffer("bias", to_var(ignore.bias.data, requires_grad=True))
         else:
-            self.register_buffer('bias', None)
+            self.register_buffer("bias", None)
 
     def forward(self, x):
-        return F.conv2d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
+        return F.conv2d(
+            x,
+            self.weight,
+            self.bias,
+            self.stride,
+            self.padding,
+            self.dilation,
+            self.groups,
+        )
 
     def named_leaves(self):
-        return [('weight', self.weight), ('bias', self.bias)]
+        return [("weight", self.weight), ("bias", self.bias)]
 
 
 class MetaConvTranspose2d(MetaModule):
@@ -169,20 +180,28 @@ class MetaConvTranspose2d(MetaModule):
         self.dilation = ignore.dilation
         self.groups = ignore.groups
 
-        self.register_buffer('weight', to_var(ignore.weight.data, requires_grad=True))
+        self.register_buffer("weight", to_var(ignore.weight.data, requires_grad=True))
 
         if ignore.bias is not None:
-            self.register_buffer('bias', to_var(ignore.bias.data, requires_grad=True))
+            self.register_buffer("bias", to_var(ignore.bias.data, requires_grad=True))
         else:
-            self.register_buffer('bias', None)
+            self.register_buffer("bias", None)
 
     def forward(self, x, output_size=None):
         output_padding = self._output_padding(x, output_size)
-        return F.conv_transpose2d(x, self.weight, self.bias, self.stride, self.padding,
-                                  output_padding, self.groups, self.dilation)
+        return F.conv_transpose2d(
+            x,
+            self.weight,
+            self.bias,
+            self.stride,
+            self.padding,
+            output_padding,
+            self.groups,
+            self.dilation,
+        )
 
     def named_leaves(self):
-        return [('weight', self.weight), ('bias', self.bias)]
+        return [("weight", self.weight), ("bias", self.bias)]
 
 
 class MetaBatchNorm2d(MetaModule):
@@ -197,28 +216,39 @@ class MetaBatchNorm2d(MetaModule):
         self.track_running_stats = ignore.track_running_stats
 
         if self.affine:
-            self.register_buffer('weight', to_var(ignore.weight.data, requires_grad=True))
-            self.register_buffer('bias', to_var(ignore.bias.data, requires_grad=True))
+            self.register_buffer(
+                "weight", to_var(ignore.weight.data, requires_grad=True)
+            )
+            self.register_buffer("bias", to_var(ignore.bias.data, requires_grad=True))
 
         if self.track_running_stats:
-            self.register_buffer('running_mean', torch.zeros(self.num_features))
-            self.register_buffer('running_var', torch.ones(self.num_features))
+            self.register_buffer("running_mean", torch.zeros(self.num_features))
+            self.register_buffer("running_var", torch.ones(self.num_features))
         else:
-            self.register_parameter('running_mean', None)
-            self.register_parameter('running_var', None)
+            self.register_parameter("running_mean", None)
+            self.register_parameter("running_var", None)
 
     def forward(self, x):
-        return F.batch_norm(x, self.running_mean, self.running_var, self.weight, self.bias,
-                            self.training or not self.track_running_stats, self.momentum, self.eps)
+        return F.batch_norm(
+            x,
+            self.running_mean,
+            self.running_var,
+            self.weight,
+            self.bias,
+            self.training or not self.track_running_stats,
+            self.momentum,
+            self.eps,
+        )
 
     def named_leaves(self):
-        return [('weight', self.weight), ('bias', self.bias)]
+        return [("weight", self.weight), ("bias", self.bias)]
 
 
 def _weights_init(m):
     classname = m.__class__.__name__
     if isinstance(m, MetaLinear) or isinstance(m, MetaConv2d):
         init.kaiming_normal(m.weight)
+
 
 class LambdaLayer(MetaModule):
     def __init__(self, lambd):
@@ -232,22 +262,38 @@ class LambdaLayer(MetaModule):
 class BasicBlock(MetaModule):
     expansion = 1
 
-    def __init__(self, in_planes, planes, stride=1, option='A'):
+    def __init__(self, in_planes, planes, stride=1, option="A"):
         super(BasicBlock, self).__init__()
-        self.conv1 = MetaConv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv1 = MetaConv2d(
+            in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False
+        )
         self.bn1 = MetaBatchNorm2d(planes)
-        self.conv2 = MetaConv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = MetaConv2d(
+            planes, planes, kernel_size=3, stride=1, padding=1, bias=False
+        )
         self.bn2 = MetaBatchNorm2d(planes)
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != planes:
-            if option == 'A':
-                self.shortcut = LambdaLayer(lambda x:
-                                            F.pad(x[:, :, ::2, ::2], (0, 0, 0, 0, planes//4, planes//4), "constant", 0))
-            elif option == 'B':
+            if option == "A":
+                self.shortcut = LambdaLayer(
+                    lambda x: F.pad(
+                        x[:, :, ::2, ::2],
+                        (0, 0, 0, 0, planes // 4, planes // 4),
+                        "constant",
+                        0,
+                    )
+                )
+            elif option == "B":
                 self.shortcut = nn.Sequential(
-                    MetaConv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
-                    MetaBatchNorm2d(self.expansion * planes)
+                    MetaConv2d(
+                        in_planes,
+                        self.expansion * planes,
+                        kernel_size=1,
+                        stride=stride,
+                        bias=False,
+                    ),
+                    MetaBatchNorm2d(self.expansion * planes),
                 )
 
     def forward(self, x):
@@ -273,7 +319,7 @@ class ResNet32(MetaModule):
         self.apply(_weights_init)
 
     def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1]*(num_blocks-1)
+        strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
             layers.append(block(self.in_planes, planes, stride))
@@ -290,3 +336,30 @@ class ResNet32(MetaModule):
         out = out.view(out.size(0), -1)
         y = self.linear(out)
         return out, y
+
+
+# TODO replace with CNN emnlp
+class BinaryClassification(MetaModule):
+    def __init__(self, num_classes=2, num_features=4):
+        super(BinaryClassification, self).__init__()
+        self.layer_1 = nn.Linear(num_features, 64)
+        self.layer_2 = nn.Linear(64, 64)
+        self.linear = nn.Linear(64, num_classes)
+
+        self.apply(_weights_init)
+
+        self.relu = nn.ReLU()
+        # self.dropout = nn.Dropout(p=0.1)
+        # self.batchnorm1 = nn.BatchNorm1d(64)
+        # self.batchnorm2 = nn.BatchNorm1d(64)
+
+    def forward(self, inputs):
+        inputs = inputs.to(torch.float32)
+        x = self.relu(self.layer_1(inputs))
+        # x = self.batchnorm1(x)
+        x = self.layer_2(x)
+        # x = self.batchnorm2(x)
+        # x = self.dropout(x)
+        y = self.linear(x)
+
+        return x, y
