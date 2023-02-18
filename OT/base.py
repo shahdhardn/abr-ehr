@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 from sklearn import metrics
 from star import StarTransformerClassifier
 from transformers import AdamW, BertModel, BertConfig
-
+from resnet import *
 
 class Cnn(nn.Module):
     def __init__(

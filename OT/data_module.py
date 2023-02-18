@@ -11,10 +11,13 @@ import sparse
 from transformers import BertTokenizer
 from pandarallel import pandarallel
 import h5py
+import random
+from collections import defaultdict
 
 
 class EHRDataset(Dataset):
     def __init__(self, split, notes, discrete, merge):
+        self.class_indices = {}
         self.notes = notes
         self.discrete = discrete
         self.merge = merge
@@ -58,11 +61,87 @@ class EHRDataset(Dataset):
                 token_type_ids = torch.tensor(self.token_type_ids[index])
                 attention_mask = torch.tensor(self.attention_mask[index])
             x = (x, input_ids, token_type_ids, attention_mask)
-        y = torch.tensor(self.y[index]).float()
-        return x, y
+        # y = torch.tensor(self.y[index]).float()
+        target = self.y[index]
+        if target not in self.class_indices:
+            self.class_indices[target] = index
+        y = torch.LongTensor([np.int64(self.y[index])])
+        return x, y, index
 
     def __len__(self):
         return len(self.y)
+
+
+# import random
+# from collections import defaultdict
+
+
+# class EHRDataset(Dataset):
+#     def __init__(self, split, notes, discrete, merge):
+#         self.notes = notes
+#         self.discrete = discrete
+#         self.merge = merge
+#         self.X = split["X"][()]
+#         self.s = split["S"][()]
+#         self.y = split["label"][()]
+#         assert len(self.X) == len(self.s) and len(self.X) == len(self.y)
+#         if self.notes:
+#             if self.discrete:
+#                 self.time = split["time"][()]
+#             self.input_ids = split["input_ids"][()]
+#             self.token_type_ids = split["token_type_ids"][()]
+#             self.attention_mask = split["attention_mask"][()]
+#             assert len(self.input_ids) == len(self.y)
+
+#         # Keep track of indices for each class
+#         self.indices_by_class = defaultdict(list)
+#         for i, label in enumerate(self.y):
+#             self.indices_by_class[label].append(i)
+
+#         # Ensure at least one sample per class
+#         self.initial_indices = []
+#         for label, indices in self.indices_by_class.items():
+#             self.initial_indices.append(random.choice(indices))
+
+#     def __getitem__(self, index):
+#         if index < len(self.initial_indices):
+#             index = self.initial_indices[index]
+#         else:
+#             index -= len(self.initial_indices)
+
+#         xi = self.X[index]
+#         si = self.s[index]
+#         L, D = xi.shape
+#         if self.merge:
+#             xi = np.hstack((xi, np.tile(si, (L, 1))))  # time dependent
+#             x = torch.from_numpy(xi).float()
+#         else:
+#             si = torch.from_numpy(si).float()  # time invariant
+#             xi = torch.from_numpy(xi).float()
+#             x = (si, xi)
+#         if self.notes:
+#             if self.discrete:
+#                 base = torch.zeros((L, self.input_ids[0].shape[-1]))
+#                 input_ids = torch.scatter(
+#                     base, 0, self.time[index], self.input_ids[index]
+#                 )
+#                 token_type_ids = torch.scatter(
+#                     base, 0, self.time[index], self.token_type_ids[index]
+#                 )
+#                 attention_mask = torch.scatter(
+#                     base, 0, self.time[index], self.attention_mask[index]
+#                 )
+#             else:
+#                 input_ids = torch.tensor(self.input_ids[index])
+#                 token_type_ids = torch.tensor(self.token_type_ids[index])
+#                 attention_mask = torch.tensor(self.attention_mask[index])
+#             x = (x, input_ids, token_type_ids, attention_mask)
+#         # y = torch.tensor(self.y[index]).float()
+#         y = torch.LongTensor([np.int64(self.y[index])])
+#         return x, y, index
+
+#     def __len__(self):
+#         return len(self.y) + len(self.indices_by_class) - len(self.initial_indices)
 
 
 class MimicDataModule(pl.LightningDataModule):
@@ -78,7 +157,7 @@ class MimicDataModule(pl.LightningDataModule):
         task: str = "ARF",
         duration: float = 12.0,
         timestep: float = 1.0,
-        batch_size: int = 16,
+        batch_size: int = 40,
         notes: bool = True,
         discrete: bool = False,
         merge: bool = False,
@@ -379,7 +458,6 @@ class MimicDataModule(pl.LightningDataModule):
         hf.close()
 
     def train_dataloader(self):
-
         return DataLoader(
             self.train,
             batch_size=self.batch_size,
@@ -389,10 +467,16 @@ class MimicDataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(
-            self.val, batch_size=self.batch_size, num_workers=self.num_workers
+            self.val,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            shuffle=True,
         )
 
     def test_dataloader(self):
         return DataLoader(
-            self.test, batch_size=self.batch_size, num_workers=self.num_workers
+            self.test,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            shuffle=True,
         )

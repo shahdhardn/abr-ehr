@@ -1,9 +1,12 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
 from torch.autograd import Variable
 import torch.nn.init as init
+import base
+from typing import Any
 
 
 def to_var(x, requires_grad=True):
@@ -338,13 +341,12 @@ class ResNet32(MetaModule):
         return out, y
 
 
-# TODO replace with CNN emnlp
 class BinaryClassification(MetaModule):
     def __init__(self, num_classes=2, num_features=4):
         super(BinaryClassification, self).__init__()
         self.layer_1 = nn.Linear(num_features, 64)
         self.layer_2 = nn.Linear(64, 64)
-        self.linear = nn.Linear(64, num_classes)
+        self.linear = MetaLinear(64, num_classes)
 
         self.apply(_weights_init)
 
@@ -363,3 +365,53 @@ class BinaryClassification(MetaModule):
         y = self.linear(x)
 
         return x, y
+
+
+class MBertLstm(MetaModule):
+    def __init__(
+        self,
+        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
+        ti_input_size: int = 96,
+        ti_norm_size: int = 64,
+        ts_input_size: int = 5132,
+        ts_norm_size: int = 1024,
+        n_neurons: int = 512,
+        bert_size: int = 768,
+        output_size: int = 2,
+        num_layers: int = 1,
+        dropout: int = 0.1,
+        num_training_steps: int = 1000,
+        warmup_proportion: float = 0.1,
+        lr: float = 5e-5,
+        **kwargs: Any
+    ) -> None:
+        super().__init__()
+        # self.save_hyperparameters()
+        self.num_training_steps = num_training_steps
+        self.warmup_proportion = warmup_proportion
+        self.lr = lr
+
+        self.ti_enc = nn.Linear(ti_input_size, ti_norm_size)
+
+        self.ts_enc = base.Lstm(
+            input_size=ts_input_size,
+            hidden_size=ts_norm_size,
+            n_neurons=n_neurons,
+            num_layers=num_layers,
+        )
+
+        self.nt_enc = base.Bert(pretrained_bert_dir=pretrained_bert_dir)
+
+        self.gate = base.Gate(bert_size, ti_norm_size, n_neurons, dropout)
+
+        # self.linear = nn.Linear(bert_size, output_size)
+        self.linear = MetaLinear(bert_size, output_size)
+        self.apply(_weights_init)
+
+    def forward(self, x):
+        ti = self.ti_enc(x[0][0])
+        ts = self.ts_enc(x[0][1])
+        nt = self.nt_enc(x[1:])
+        fusion = self.gate(nt, ti, ts)
+        # return torch.sigmoid(self.pred(fusion)).squeeze(1)
+        return fusion, self.linear(fusion)
