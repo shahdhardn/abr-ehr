@@ -63,16 +63,10 @@ parser.add_argument(
 # parser.add_argument("--num_classes", type=int, default=10)
 parser.add_argument("--num_classes", type=int, default=2)
 # TODO number of meta data
-# parser.add_argument(
-#     "--num_meta", type=int, default=10, help="The number of meta data for each class."
-# )
-# parser.add_argument(
-#     "--num_meta",
-#     type=int,
-#     default=FEAURE_SIZE,
-#     help="The number of meta data for each class.",
-# )
-parser.add_argument("--imb_factor", type=float, default=0.005)
+parser.add_argument(
+    "--num_meta", type=int, default=10, help="The number of meta data for each class."
+)
+parser.add_argument("--imb_factor", type=float, default=0.08)
 # TODO change number of epochs
 # parser.add_argument(
 #     "--epochs", type=int, default=250, metavar="N", help="number of epochs to train"
@@ -129,19 +123,33 @@ imbalanced_train_loader = mimic_data_module.train_dataloader()
 validation_loader = mimic_data_module.val_dataloader()
 test_loader = mimic_data_module.test_dataloader()
 
-print("train data size: ", len(imbalanced_train_loader.dataset.y))
-print("validation data size: ", len(validation_loader.dataset.y))
-print("test data size: ", len(test_loader.dataset.y))
-
-print("train batches= ", len(imbalanced_train_loader), " batches")
-print("validation batches= ", len(validation_loader), " batches")
-print("test batches= ", len(test_loader), " batches")
-
 imbalanced_train_labels = imbalanced_train_loader.dataset.y
+
 class_counts = [
     len(imbalanced_train_labels[imbalanced_train_labels == i])
     for i in range(args.num_classes)
 ]
+
+meta_loader = mimic_data_module.meta_dataloader()
+
+print("Numper of samples per class: ", class_counts)  # to calculate imbalance factor
+args.imb_factor = (np.max(class_counts) / np.min(class_counts)) / 100
+print("Imbalance factor: ", args.imb_factor)
+
+print("train data size: ", len(imbalanced_train_loader.dataset.y))
+print("validation data size: ", len(validation_loader.dataset.y))
+print("meta data size: ", len(meta_loader.dataset.y))
+print("test data size: ", len(test_loader.dataset.y))
+
+print("train batches= ", len(imbalanced_train_loader), " batches")
+print("validation batches= ", len(validation_loader), " batches")
+print("meta batches= ", len(meta_loader), " batches")
+print("test batches= ", len(test_loader), " batches")
+
+meta_data, meta_labels, _ = next(iter(meta_loader))
+# count number of samples per class in val_labels to make sure it is balanced
+val_class_counts = [len(val_labels[val_labels == i]) for i in range(args.num_classes)]
+print("val_class_counts: ", val_class_counts)
 
 np.random.seed(args.seed)
 random.seed(args.seed)
@@ -195,6 +203,8 @@ def main():
     else:
         if args.imb_factor == 0.005:
             ckpt_path = r"checkpoint/ours/pretrain/.."
+        else:
+            ckpt_path = r"checkpoint/ours/pretrain/.."
 
     # TODO True
     model = build_model(load_pretrain=False, ckpt_path=ckpt_path)
@@ -213,7 +223,7 @@ def main():
 
         train_OT(
             imbalanced_train_loader,
-            validation_loader,
+            meta_loader,
             weightsbuffer,
             model,
             optimizer_a,
@@ -305,8 +315,9 @@ def train_OT(
     for i, batch in enumerate(train_loader):
         inputs, labels, ids = tuple(t for t in batch)
         inputs[0][0], inputs[0][1], inputs[1], inputs[2], inputs[3] = to_var_x(
-            inputs, requires_grad=True
+            inputs, requires_grad=False
         )
+
         labels = labels.to(device)
         ids = ids.to(device)
         labels = labels.squeeze()

@@ -5,6 +5,7 @@ from typing import Optional
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.sampler import WeightedRandomSampler
 import pytorch_lightning as pl
 import pandas as pd
 import sparse
@@ -13,6 +14,33 @@ from pandarallel import pandarallel
 import h5py
 import random
 from collections import defaultdict
+
+from sklearn.model_selection import StratifiedKFold
+
+
+class StratifiedBatchSampler:
+    """Stratified batch sampling
+    Provides equal representation of target classes in each batch
+    """
+
+    def __init__(self, y, batch_size, shuffle=True):
+        if torch.is_tensor(y):
+            y = y.numpy()
+        assert len(y.shape) == 1, "label array must be 1D"
+        n_batches = int(len(y) / batch_size)
+        self.skf = StratifiedKFold(n_splits=n_batches, shuffle=shuffle)
+        self.X = torch.randn(len(y), 1).numpy()
+        self.y = y
+        self.shuffle = shuffle
+
+    def __iter__(self):
+        if self.shuffle:
+            self.skf.random_state = torch.randint(0, int(1e8), size=()).item()
+        for train_idx, test_idx in self.skf.split(self.X, self.y):
+            yield test_idx
+
+    def __len__(self):
+        return len(self.y)
 
 
 class EHRDataset(Dataset):
@@ -65,6 +93,67 @@ class EHRDataset(Dataset):
         target = self.y[index]
         if target not in self.class_indices:
             self.class_indices[target] = index
+        y = torch.LongTensor([np.int64(self.y[index])])
+        return x, y, index
+
+    def __len__(self):
+        return len(self.y)
+
+
+import torch.utils.data as data
+
+
+class BalancedEHRDataset(data.Dataset):
+    def __init__(self, split, notes, discrete, merge):
+        self.class_indices = {}
+        self.notes = notes
+        self.discrete = discrete
+        self.merge = merge
+        self.X = split["X"][()]
+        self.s = split["S"][()]
+        self.y = split["label"][()]
+        assert len(self.X) == len(self.s) and len(self.X) == len(self.y)
+        if self.notes:
+            if self.discrete:
+                self.time = split["time"][()]
+            self.input_ids = split["input_ids"][()]
+            self.token_type_ids = split["token_type_ids"][()]
+            self.attention_mask = split["attention_mask"][()]
+            assert len(self.input_ids) == len(self.y)
+
+    def __getitem__(self, index):
+        xi = self.X[index]
+        si = self.s[index]
+        L, D = xi.shape
+        if self.merge:
+            xi = np.hstack((xi, np.tile(si, (L, 1))))  # time dependent
+            x = torch.from_numpy(xi).float()
+        else:
+            si = torch.from_numpy(si).float()  # time invariant
+            xi = torch.from_numpy(xi).float()
+            x = (si, xi)
+        if self.notes:
+            if self.discrete:
+                base = torch.zeros((L, self.input_ids[0].shape[-1]))
+                input_ids = torch.scatter(
+                    base, 0, self.time[index], self.input_ids[index]
+                )
+                token_type_ids = torch.scatter(
+                    base, 0, self.time[index], self.token_type_ids[index]
+                )
+                attention_mask = torch.scatter(
+                    base, 0, self.time[index], self.attention_mask[index]
+                )
+            else:
+                input_ids = torch.tensor(self.input_ids[index])
+                token_type_ids = torch.tensor(self.token_type_ids[index])
+                attention_mask = torch.tensor(self.attention_mask[index])
+            x = (x, input_ids, token_type_ids, attention_mask)
+        # y = torch.tensor(self.y[index]).float()
+        target = self.y[index]
+        if target not in self.class_indices:
+            self.class_indices[target] = []
+        self.class_indices[target].append(index)
         y = torch.LongTensor([np.int64(self.y[index])])
         return x, y, index
 
@@ -153,6 +242,7 @@ class MimicDataModule(pl.LightningDataModule):
         data_dir: str = "/l/users/mai.kassem/datasets/preprocessed_fiddle_3/",
         train=None,
         val=None,
+        meta=None,
         test=None,
         task: str = "ARF",
         duration: float = 12.0,
@@ -170,6 +260,7 @@ class MimicDataModule(pl.LightningDataModule):
         self.data_dir = Path(data_dir)
         self.train = train
         self.val = val
+        self.meta = meta
         self.test = test
         self.task = task
         self.duration = duration
@@ -453,6 +544,9 @@ class MimicDataModule(pl.LightningDataModule):
                 group["train"], self.notes, self.discrete, self.merge
             )
             self.val = EHRDataset(group["val"], self.notes, self.discrete, self.merge)
+            self.meta = BalancedEHRDataset(
+                group["val"], self.notes, self.discrete, self.merge
+            )
         if stage == "test" or stage is None:
             self.test = EHRDataset(group["test"], self.notes, self.discrete, self.merge)
         hf.close()
@@ -470,7 +564,26 @@ class MimicDataModule(pl.LightningDataModule):
             self.val,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            shuffle=True,
+            shuffle=False,
+        )
+
+    def meta_dataloader(self):
+        target = self.meta.y
+        class_sample_count = np.array(
+            [len(np.where(target == t)[0]) for t in np.unique(target)]
+        )
+        weight = 1.0 / class_sample_count
+        samples_weight = np.array([weight[t] for t in target])
+        samples_weight = torch.from_numpy(samples_weight)
+        samples_weight = samples_weight.double()
+        sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
+
+        return DataLoader(
+            self.meta,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            sampler=sampler,
+            shuffle=False,
         )
 
     def test_dataloader(self):
@@ -478,5 +591,5 @@ class MimicDataModule(pl.LightningDataModule):
             self.test,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            shuffle=True,
+            shuffle=False,
         )
