@@ -29,6 +29,7 @@ class resnet_attention(nn.Module):
         return F.softmax(attention, dim=0)
 
 
+# check class meta module
 class MetaModule(nn.Module):
     def params(self):
         for name, param in self.named_params(self):
@@ -367,10 +368,13 @@ class BinaryClassification(MetaModule):
         return x, y
 
 
+PRETRAIN_CHECKPOINT_PATH = "/l/users/mai.kassem/datasets/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin"
+
+
 class MBertLstm(MetaModule):
     def __init__(
         self,
-        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
+        pretrained_bert_dir: str = PRETRAIN_CHECKPOINT_PATH,
         ti_input_size: int = 96,
         ti_norm_size: int = 64,
         ts_input_size: int = 5132,

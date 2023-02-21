@@ -25,9 +25,15 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from resnet import *
+from models import *
 
 from data_module import MimicDataModule
+from data_utils import *
+
+# Log in to your W&B account
+import wandb
+
+wandb.login()
 
 parser = argparse.ArgumentParser(description="Imbalanced Example")
 # TODO dataset
@@ -89,7 +95,7 @@ parser.add_argument(
 parser.add_argument(
     "--no-cuda", action="store_true", default=False, help="disables CUDA training"
 )
-# parser.add_argument(
+# parser.add_argument(ß
 #     "--seed", type=int, default=42, metavar="S", help="random seed (default: 42)"
 # )
 parser.add_argument(
@@ -99,7 +105,7 @@ parser.add_argument("--gpu", default=0, type=int)
 parser.add_argument("--save_name", default="OT_ARF12_imb0.005", type=str)
 parser.add_argument("--idx", default="ours", type=str)
 
-parser.add_argument("--model", type=str, default="Bert")
+parser.add_argument("--model", type=str, default="MBertLstm")
 parser.add_argument(
     "--seed", type=int, default=42, metavar="S", help="random seed (default: 42)"
 )
@@ -120,7 +126,7 @@ mimic_data_module = MimicDataModule.from_argparse_args(args)
 mimic_data_module.prepare_data()
 mimic_data_module.setup()
 imbalanced_train_loader = mimic_data_module.train_dataloader()
-validation_loader = mimic_data_module.val_dataloader()
+# validation_loader = mimic_data_module.val_dataloader()
 test_loader = mimic_data_module.test_dataloader()
 
 imbalanced_train_labels = imbalanced_train_loader.dataset.y
@@ -137,32 +143,36 @@ args.imb_factor = (np.max(class_counts) / np.min(class_counts)) / 100
 print("Imbalance factor: ", args.imb_factor)
 
 print("train data size: ", len(imbalanced_train_loader.dataset.y))
-print("validation data size: ", len(validation_loader.dataset.y))
+# print("validation data size: ", len(validation_loader.dataset.y))
 print("meta data size: ", len(meta_loader.dataset.y))
 print("test data size: ", len(test_loader.dataset.y))
 
 print("train batches= ", len(imbalanced_train_loader), " batches")
-print("validation batches= ", len(validation_loader), " batches")
+# print("validation batches= ", len(validation_loader), " batches")
 print("meta batches= ", len(meta_loader), " batches")
 print("test batches= ", len(test_loader), " batches")
 
+# count number of samples per class in meta set to make sure it is balanced
 meta_data, meta_labels, _ = next(iter(meta_loader))
-# count number of samples per class in val_labels to make sure it is balanced
-val_class_counts = [len(val_labels[val_labels == i]) for i in range(args.num_classes)]
-print("val_class_counts: ", val_class_counts)
+meta_class_counts = [
+    len(meta_labels[meta_labels == i]) for i in range(args.num_classes)
+]
+print("meta_class_counts: ", meta_class_counts)
+del meta_data, meta_labels, meta_class_counts
 
 np.random.seed(args.seed)
 random.seed(args.seed)
 torch.manual_seed(args.seed)
 classe_labels = range(args.num_classes)
 
-data_list = {}
-
-
-for j in range(args.num_classes):
-    data_list[j] = [
-        i for i, label in enumerate(imbalanced_train_loader.dataset.y) if label == j
-    ]
+samples_num_list = get_samples_num_per_cls(
+    args.dataset,
+    args.imb_factor,
+    args.num_meta * args.num_classes,
+    len(imbalanced_train_loader.dataset.y),
+)
+print(samples_num_list)
+print(sum(samples_num_list))
 
 best_prec1 = 0
 best_f1 = 0
@@ -170,9 +180,9 @@ best_auroc = 0
 best_aupr = 0
 
 beta = 0.9999
-effective_num = 1.0 - np.power(beta, class_counts)
+effective_num = 1.0 - np.power(beta, samples_num_list)
 per_cls_weights = (1.0 - beta) / np.array(effective_num)
-per_cls_weights = per_cls_weights / np.sum(per_cls_weights) * len(class_counts)
+per_cls_weights = per_cls_weights / np.sum(per_cls_weights) * len(samples_num_list)
 per_cls_weights = torch.FloatTensor(per_cls_weights).to(device)
 weights = torch.tensor(per_cls_weights).float()
 weightsbuffer = torch.tensor(
@@ -188,6 +198,23 @@ criterion_label = SinkhornDistance(
 ).to(device)
 criterion_fl = SinkhornDistance_fl(eps=eplisons, max_iter=200, reduction=None).to(
     device
+)
+
+run = wandb.util.generate_id()
+wandb.init(
+    # Set the project where this run will be logged
+    project="OT_ARF12",
+    # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
+    name=f"experiment_{run}",
+    # Track hyperparameters and run metadata
+    config={
+        "learning_rate": args.lr,
+        "architecture": "MBertLSTM",
+        "dataset": "MIMIC",
+        "epochs": args.epochs,
+        "imb_factor": args.imb_factor,
+        "batch_size": args.batch_size,
+    },
 )
 
 
@@ -271,6 +298,8 @@ def main():
         "Corresponding AUPR: ",
         corresponding_aupr,
     )
+
+    wandb.finish()
 
 
 def train_OT(
@@ -500,6 +529,15 @@ def validate(test_loader, model):
     print(" * F1 {f1.avg:.3f}".format(f1=f1))
     print(" * AUROC {auroc.avg:.3f}".format(auroc=auroc))
     print(" * AUPR {aupr.avg:.3f}".format(aupr=aupr))
+    wandb.log(
+        {
+            "test-loss": losses.avg,
+            "test-prec1": top1.avg,
+            "test-f1": f1.avg,
+            "test-auroc": auroc.avg,
+            "test-aupr": aupr.avg,
+        }
+    )
 
     return top1.avg, f1.avg, auroc.avg, aupr.avg, preds, true_labels
 
@@ -659,6 +697,13 @@ def calc_f1(output, target):
 
 
 def calc_auroc(output, target):
+    """
+    It calculates the area under the ROC curve (AUROC) for a given model output and target
+
+    :param output: the output of the model
+    :param target: the ground truth labels
+    :return: The area under the ROC curve.
+    """
     with torch.no_grad():
         _, pred = output.topk(1, 1, True, True)
         pred = pred.t()
@@ -672,6 +717,13 @@ def calc_auroc(output, target):
 
 
 def calc_aupr(output, target):
+    """
+    It calculates the area under the precision-recall curve
+
+    :param output: the output of the model, which is a tensor of shape (batch_size, num_classes)
+    :param target: the ground truth labels
+    :return: The area under the precision-recall curve.
+    """
     with torch.no_grad():
         _, pred = output.topk(1, 1, True, True)
         pred = pred.t()
