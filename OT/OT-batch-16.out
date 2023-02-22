@@ -1,5 +1,4 @@
-wandb: Currently logged in as: mai-cs (abr-ehr). Use `wandb login --relogin` to force relogin
-wandb: Currently logged in as: mai-cs (abr-ehr). Use `wandb login --relogin` to force relogin
+wandb: Currently logged in as: mai-cs. Use `wandb login --relogin` to force relogin
 dataset=mimic
 cost=combined
 meta_set=whole
@@ -7,8 +6,8 @@ batch_size=16
 num_classes=2
 num_meta=10
 imb_factor=0.08
-epochs=12
-lr=0.0001
+epochs=14
+lr=2e-05
 momentum=0.9
 nesterov=True
 weight_decay=0.0005
@@ -17,34 +16,7 @@ print_freq=100
 gpu=0
 save_name=OT_ARF12_imb0.005
 idx=ours
-model=LineMeta
-seed=42
-Numper of samples per class:  [5924, 702]
-Imbalance factor:  0.08438746438746439
-train data size:  6626
-meta data size:  1389
-test data size:  1378
-train batches=  415  batches
-meta batches=  87  batches
-test batches=  87  batches
-dataset=mimic
-cost=combined
-meta_set=whole
-batch_size=16
-num_classes=2
-num_meta=10
-imb_factor=0.08
-epochs=12
-lr=0.0001
-momentum=0.9
-nesterov=True
-weight_decay=0.0005
-no_cuda=False
-print_freq=100
-gpu=0
-save_name=OT_ARF12_imb0.005
-idx=ours
-model=Line
+model=Bert
 seed=42
 Numper of samples per class:  [5924, 702]
 Imbalance factor:  0.08438746438746439
@@ -57,54 +29,185 @@ test batches=  87  batches
 wandb: wandb version 0.13.10 is available!  To upgrade, please run:
 wandb:  $ pip install wandb --upgrade
 wandb: Tracking run with wandb version 0.13.9
-wandb: Run data is saved locally in /home/mai.kassem/sources/abr-ehr/OT/wandb/run-20230222_230930-xbrqo04z
+wandb: Run data is saved locally in /home/mai.kassem/sources/abr-ehr/OT/wandb/run-20230221_142021-7u43po8m
 wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run experiment_gb7tr0yc
-wandb: ⭐️ View project at https://wandb.ai/abr-ehr/OT_ARF12
-wandb: 🚀 View run at https://wandb.ai/abr-ehr/OT_ARF12/runs/xbrqo04z
+wandb: Syncing run experiment_bo35vjkk
+wandb: ⭐️ View project at https://wandb.ai/mai-cs/OT_ARF12
+wandb: 🚀 View run at https://wandb.ai/mai-cs/OT_ARF12/runs/7u43po8m
 meta_class_counts:  [8, 8]
 [3303, 278]
 3581
-Traceback (most recent call last):
-  File "/home/mai.kassem/sources/abr-ehr/OT/OT_train.py", line 773, in <module>
-    main()
-  File "/home/mai.kassem/sources/abr-ehr/OT/OT_train.py", line 231, in main
-    model = build_model(load_pretrain=False, ckpt_path=ckpt_path)
-  File "/home/mai.kassem/sources/abr-ehr/OT/OT_train.py", line 577, in build_model
-    model = _CustomDataParallel(Line()).to(device)
-  File "/home/mai.kassem/sources/abr-ehr/OT/models.py", line 434, in __init__
-    self.save_hyperparameters()
-  File "/home/mai.kassem/.conda/envs/torch/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1269, in __getattr__
-    raise AttributeError("'{}' object has no attribute '{}'".format(
-AttributeError: 'Line' object has no attribute 'save_hyperparameters'
-wandb: Waiting for W&B process to finish... (failed 1). Press Control-C to abort syncing.
-wandb: wandb version 0.13.10 is available!  To upgrade, please run:
-wandb:  $ pip install wandb --upgrade
-wandb: Tracking run with wandb version 0.13.9
-wandb: Run data is saved locally in /home/mai.kassem/sources/abr-ehr/OT/wandb/run-20230222_230930-pkihba10
-wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run experiment_tjlsmc9z
-wandb: ⭐️ View project at https://wandb.ai/abr-ehr/OT_ARF12
-wandb: 🚀 View run at https://wandb.ai/abr-ehr/OT_ARF12/runs/pkihba10
-meta_class_counts:  [8, 8]
-[3303, 278]
-3581
-Traceback (most recent call last):
-  File "/home/mai.kassem/sources/abr-ehr/OT/OT_train.py", line 773, in <module>
-    main()
-  File "/home/mai.kassem/sources/abr-ehr/OT/OT_train.py", line 231, in main
-    model = build_model(load_pretrain=False, ckpt_path=ckpt_path)
-  File "/home/mai.kassem/sources/abr-ehr/OT/OT_train.py", line 584, in build_model
-    model = _CustomDataParallel(LineMeta()).to(device)
-  File "/home/mai.kassem/sources/abr-ehr/OT/models.py", line 454, in __init__
-    self.save_hyperparameters()
-  File "/home/mai.kassem/.conda/envs/torch/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1269, in __getattr__
-    raise AttributeError("'{}' object has no attribute '{}'".format(
-AttributeError: 'LineMeta' object has no attribute 'save_hyperparameters'
-wandb: Waiting for W&B process to finish... (failed 1). Press Control-C to abort syncing.
-wandb: - 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: \ 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: | 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: / 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: - 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: \ 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: | 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: / 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: - 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: \ 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: 🚀 View run experiment_gb7tr0yc at: https://wandb.ai/abr-ehr/OT_ARF12/runs/xbrqo04z
-wandb: Synced 5 W&B file(s), 0 media file(s), 2 artifact file(s) and 0 other file(s)
-wandb: Find logs at: ./wandb/run-20230222_230930-xbrqo04z/logs
-wandb: - 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: \ 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: | 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: / 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: - 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: \ 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: | 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: / 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: - 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: \ 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: | 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: 🚀 View run experiment_tjlsmc9z at: https://wandb.ai/abr-ehr/OT_ARF12/runs/pkihba10
-wandb: Synced 5 W&B file(s), 0 media file(s), 2 artifact file(s) and 0 other file(s)
-wandb: Find logs at: ./wandb/run-20230222_230930-pkihba10/logs
+Epoch: [0][0/415]	Loss 22.7229 (22.7229)	F1 0.448 (0.448)	AUROC 0.464 (0.464)	AUPR 0.062 (0.062)	Prec@1 81.250 (81.250)
+Epoch: [0][100/415]	Loss 12.1525 (12.9833)	F1 0.377 (0.420)	AUROC 0.464 (0.484)	AUPR 0.337 (0.320)	Prec@1 43.750 (57.921)
+Epoch: [0][200/415]	Loss 15.6373 (12.8958)	F1 0.467 (0.424)	AUROC 0.564 (0.487)	AUPR 0.476 (0.320)	Prec@1 50.000 (57.680)
+Epoch: [0][300/415]	Loss 19.5218 (12.6874)	F1 0.418 (0.427)	AUROC 0.418 (0.489)	AUPR 0.325 (0.324)	Prec@1 50.000 (58.119)
+Epoch: [0][400/415]	Loss 11.6955 (12.6156)	F1 0.304 (0.424)	AUROC 0.233 (0.486)	AUPR 0.031 (0.319)	Prec@1 43.750 (57.746)
+Epoch: [0][414/415]	Loss 10.1491 (12.6021)	F1 0.333 (0.425)	AUROC 0.500 (0.487)	AUPR 0.500 (0.319)	Prec@1 50.000 (57.803)
+Test: [86/87]	Time 0.026 (0.142)	Loss 0.5623 (0.5971)	F1 1.000 (0.527)	AUROC 0.500 (0.507)	AUPR 0.500 (0.532)	Prec@1 100.000 (88.897)
+ * Prec@1 88.897
+ * F1 0.527
+ * AUROC 0.507
+ * AUPR 0.532
+Epoch: [1][0/415]	Loss 14.8938 (14.8938)	F1 0.273 (0.273)	AUROC 0.231 (0.231)	AUPR 0.094 (0.094)	Prec@1 37.500 (37.500)
+Epoch: [1][100/415]	Loss 14.9284 (12.3128)	F1 0.561 (0.337)	AUROC 0.627 (0.484)	AUPR 0.631 (0.394)	Prec@1 56.250 (40.718)
+Epoch: [1][200/415]	Loss 14.4474 (12.1438)	F1 0.500 (0.343)	AUROC 0.571 (0.503)	AUPR 0.365 (0.424)	Prec@1 62.500 (40.516)
+Epoch: [1][300/415]	Loss 9.7408 (12.0576)	F1 0.459 (0.347)	AUROC 0.767 (0.509)	AUPR 0.562 (0.426)	Prec@1 56.250 (40.781)
+Epoch: [1][400/415]	Loss 10.6315 (11.9142)	F1 0.543 (0.345)	AUROC 0.607 (0.506)	AUPR 0.381 (0.418)	Prec@1 68.750 (40.742)
+Epoch: [1][414/415]	Loss 6.5118 (11.8915)	F1 1.000 (0.348)	AUROC 0.500 (0.509)	AUPR 0.500 (0.419)	Prec@1 100.000 (41.081)
+Test: [86/87]	Time 0.026 (0.142)	Loss 0.8352 (0.8329)	F1 0.000 (0.092)	AUROC 0.500 (0.500)	AUPR 0.500 (0.553)	Prec@1 0.000 (10.595)
+ * Prec@1 10.595
+ * F1 0.092
+ * AUROC 0.500
+ * AUPR 0.553
+Epoch: [2][0/415]	Loss 13.9907 (13.9907)	F1 0.467 (0.467)	AUROC 0.564 (0.564)	AUPR 0.476 (0.476)	Prec@1 50.000 (50.000)
+Epoch: [2][100/415]	Loss 14.3636 (11.5956)	F1 0.459 (0.346)	AUROC 0.474 (0.516)	AUPR 0.312 (0.432)	Prec@1 56.250 (40.532)
+Epoch: [2][200/415]	Loss 12.8580 (11.5694)	F1 0.200 (0.341)	AUROC 0.133 (0.508)	AUPR 0.031 (0.426)	Prec@1 25.000 (39.956)
+Epoch: [2][300/415]	Loss 11.6002 (11.4946)	F1 0.310 (0.343)	AUROC 0.577 (0.507)	AUPR 0.607 (0.423)	Prec@1 31.250 (40.469)
+Epoch: [2][400/415]	Loss 9.8814 (11.4408)	F1 0.333 (0.342)	AUROC 0.667 (0.504)	AUPR 0.545 (0.420)	Prec@1 37.500 (40.415)
+Epoch: [2][414/415]	Loss 6.0404 (11.4441)	F1 0.000 (0.342)	AUROC 0.500 (0.505)	AUPR 0.500 (0.421)	Prec@1 0.000 (40.356)
+Test: [86/87]	Time 0.028 (0.143)	Loss 0.7144 (0.7482)	F1 0.333 (0.176)	AUROC 0.500 (0.527)	AUPR 0.500 (0.546)	Prec@1 50.000 (18.578)
+ * Prec@1 18.578
+ * F1 0.176
+ * AUROC 0.527
+ * AUPR 0.546
+Epoch: [3][0/415]	Loss 8.7141 (8.7141)	F1 0.407 (0.407)	AUROC 0.500 (0.500)	AUPR 0.500 (0.500)	Prec@1 68.750 (68.750)
+Epoch: [3][100/415]	Loss 9.7100 (11.5429)	F1 0.333 (0.427)	AUROC 0.667 (0.489)	AUPR 0.545 (0.322)	Prec@1 37.500 (59.839)
+Epoch: [3][200/415]	Loss 10.8696 (11.3834)	F1 0.448 (0.429)	AUROC 0.433 (0.490)	AUPR 0.031 (0.310)	Prec@1 81.250 (60.572)
+Epoch: [3][300/415]	Loss 10.8654 (11.2266)	F1 0.459 (0.436)	AUROC 0.536 (0.497)	AUPR 0.353 (0.317)	Prec@1 56.250 (62.002)
+Epoch: [3][400/415]	Loss 10.5591 (11.0924)	F1 0.714 (0.440)	AUROC 0.714 (0.501)	AUPR 0.531 (0.317)	Prec@1 87.500 (62.500)
+Epoch: [3][414/415]	Loss 6.6324 (11.1131)	F1 0.333 (0.440)	AUROC 0.500 (0.500)	AUPR 0.500 (0.317)	Prec@1 50.000 (62.345)
+Test: [86/87]	Time 0.024 (0.143)	Loss 0.5789 (0.6289)	F1 1.000 (0.524)	AUROC 0.500 (0.510)	AUPR 0.500 (0.371)	Prec@1 100.000 (85.051)
+ * Prec@1 85.051
+ * F1 0.524
+ * AUROC 0.510
+ * AUPR 0.371
+Epoch: [4][0/415]	Loss 10.2380 (10.2380)	F1 0.500 (0.500)	AUROC 0.571 (0.571)	AUPR 0.365 (0.365)	Prec@1 62.500 (62.500)
+Epoch: [4][100/415]	Loss 12.1574 (11.5527)	F1 0.377 (0.411)	AUROC 0.464 (0.509)	AUPR 0.337 (0.369)	Prec@1 43.750 (52.661)
+Epoch: [4][200/415]	Loss 10.6135 (11.4190)	F1 0.833 (0.414)	AUROC 0.923 (0.508)	AUPR 0.800 (0.365)	Prec@1 87.500 (53.327)
+Epoch: [4][300/415]	Loss 8.6285 (11.2840)	F1 0.360 (0.416)	AUROC 0.500 (0.508)	AUPR 0.500 (0.356)	Prec@1 56.250 (54.817)
+Epoch: [4][400/415]	Loss 11.2004 (11.1616)	F1 0.273 (0.418)	AUROC 0.200 (0.509)	AUPR 0.031 (0.350)	Prec@1 37.500 (56.047)
+Epoch: [4][414/415]	Loss 6.4927 (11.1404)	F1 0.333 (0.418)	AUROC 0.500 (0.508)	AUPR 0.500 (0.347)	Prec@1 50.000 (56.112)
+Test: [86/87]	Time 0.024 (0.143)	Loss 0.5002 (0.5785)	F1 1.000 (0.547)	AUROC 0.500 (0.499)	AUPR 0.500 (0.541)	Prec@1 100.000 (89.332)
+ * Prec@1 89.332
+ * F1 0.547
+ * AUROC 0.499
+ * AUPR 0.541
+Epoch: [5][0/415]	Loss 15.0175 (15.0175)	F1 0.407 (0.407)	AUROC 0.423 (0.423)	AUPR 0.094 (0.094)	Prec@1 68.750 (68.750)
+Epoch: [5][100/415]	Loss 12.8203 (11.4926)	F1 0.238 (0.366)	AUROC 0.192 (0.500)	AUPR 0.094 (0.405)	Prec@1 31.250 (45.545)
+Epoch: [5][200/415]	Loss 16.0439 (11.5700)	F1 0.304 (0.358)	AUROC 0.292 (0.486)	AUPR 0.125 (0.388)	Prec@1 43.750 (43.843)
+Epoch: [5][300/415]	Loss 13.2662 (11.3411)	F1 0.377 (0.366)	AUROC 0.464 (0.497)	AUPR 0.337 (0.395)	Prec@1 43.750 (45.287)
+Epoch: [5][400/415]	Loss 12.2252 (11.2354)	F1 0.287 (0.369)	AUROC 0.393 (0.497)	AUPR 0.327 (0.392)	Prec@1 31.250 (45.714)
+Epoch: [5][414/415]	Loss 8.1838 (11.2107)	F1 1.000 (0.367)	AUROC 0.500 (0.496)	AUPR 0.500 (0.393)	Prec@1 100.000 (45.533)
+Test: [86/87]	Time 0.024 (0.144)	Loss 0.4468 (0.5439)	F1 1.000 (0.548)	AUROC 0.500 (0.500)	AUPR 0.500 (0.553)	Prec@1 100.000 (89.478)
+ * Prec@1 89.478
+ * F1 0.548
+ * AUROC 0.500
+ * AUPR 0.553
+Epoch: [6][0/415]	Loss 12.3076 (12.3076)	F1 0.360 (0.360)	AUROC 0.346 (0.346)	AUPR 0.094 (0.094)	Prec@1 56.250 (56.250)
+Epoch: [6][100/415]	Loss 15.7365 (10.6453)	F1 0.459 (0.507)	AUROC 0.458 (0.519)	AUPR 0.319 (0.306)	Prec@1 56.250 (78.156)
+Epoch: [6][200/415]	Loss 8.6203 (10.5390)	F1 0.467 (0.497)	AUROC 0.467 (0.511)	AUPR 0.031 (0.316)	Prec@1 87.500 (77.083)
+Epoch: [6][300/415]	Loss 10.7399 (10.5510)	F1 0.467 (0.485)	AUROC 0.500 (0.507)	AUPR 0.562 (0.302)	Prec@1 87.500 (74.855)
+Epoch: [6][400/415]	Loss 12.5249 (10.5798)	F1 0.304 (0.482)	AUROC 0.269 (0.507)	AUPR 0.094 (0.306)	Prec@1 43.750 (73.473)
+Epoch: [6][414/415]	Loss 6.5016 (10.5697)	F1 1.000 (0.481)	AUROC 0.500 (0.507)	AUPR 0.500 (0.302)	Prec@1 100.000 (73.498)
+Test: [86/87]	Time 0.025 (0.144)	Loss 0.4069 (0.5158)	F1 1.000 (0.547)	AUROC 0.500 (0.504)	AUPR 0.500 (0.475)	Prec@1 100.000 (88.462)
+ * Prec@1 88.462
+ * F1 0.547
+ * AUROC 0.504
+ * AUPR 0.475
+Epoch: [7][0/415]	Loss 10.0124 (10.0124)	F1 0.644 (0.644)	AUROC 0.679 (0.679)	AUPR 0.448 (0.448)	Prec@1 81.250 (81.250)
+Epoch: [7][100/415]	Loss 9.2450 (11.0614)	F1 0.407 (0.420)	AUROC 0.500 (0.510)	AUPR 0.500 (0.364)	Prec@1 68.750 (56.312)
+Epoch: [7][200/415]	Loss 11.7285 (10.8591)	F1 0.590 (0.424)	AUROC 0.643 (0.511)	AUPR 0.406 (0.352)	Prec@1 75.000 (56.592)
+Epoch: [7][300/415]	Loss 8.7991 (10.7783)	F1 0.385 (0.419)	AUROC 0.500 (0.512)	AUPR 0.500 (0.357)	Prec@1 62.500 (56.208)
+Epoch: [7][400/415]	Loss 12.6892 (10.7580)	F1 0.238 (0.418)	AUROC 0.179 (0.511)	AUPR 0.062 (0.359)	Prec@1 31.250 (55.782)
+Epoch: [7][414/415]	Loss 6.4655 (10.7604)	F1 0.000 (0.419)	AUROC 0.500 (0.513)	AUPR 0.500 (0.363)	Prec@1 0.000 (55.720)
+Test: [86/87]	Time 0.025 (0.143)	Loss 0.6657 (0.7257)	F1 0.333 (0.316)	AUROC 0.500 (0.539)	AUPR 0.500 (0.481)	Prec@1 50.000 (35.269)
+ * Prec@1 35.269
+ * F1 0.316
+ * AUROC 0.539
+ * AUPR 0.481
+Epoch: [8][0/415]	Loss 9.4986 (9.4986)	F1 0.333 (0.333)	AUROC 0.267 (0.267)	AUPR 0.031 (0.031)	Prec@1 50.000 (50.000)
+Epoch: [8][100/415]	Loss 10.1369 (10.3741)	F1 0.184 (0.206)	AUROC 0.536 (0.500)	AUPR 0.567 (0.500)	Prec@1 18.750 (23.082)
+Epoch: [8][200/415]	Loss 8.9528 (10.3306)	F1 0.287 (0.212)	AUROC 0.633 (0.516)	AUPR 0.542 (0.517)	Prec@1 31.250 (23.165)
+Epoch: [8][300/415]	Loss 10.9022 (10.3065)	F1 0.111 (0.207)	AUROC 0.500 (0.508)	AUPR 0.562 (0.512)	Prec@1 12.500 (22.446)
+Epoch: [8][400/415]	Loss 9.8819 (10.2816)	F1 0.158 (0.201)	AUROC 0.100 (0.504)	AUPR 0.031 (0.510)	Prec@1 18.750 (21.602)
+Epoch: [8][414/415]	Loss 6.4638 (10.2559)	F1 0.333 (0.204)	AUROC 0.500 (0.506)	AUPR 0.500 (0.511)	Prec@1 50.000 (21.959)
+Test: [86/87]	Time 0.024 (0.143)	Loss 0.9580 (0.9717)	F1 0.000 (0.091)	AUROC 0.500 (0.500)	AUPR 0.500 (0.553)	Prec@1 0.000 (10.522)
+ * Prec@1 10.522
+ * F1 0.091
+ * AUROC 0.500
+ * AUPR 0.553
+Epoch: [9][0/415]	Loss 11.8619 (11.8619)	F1 0.238 (0.238)	AUROC 0.600 (0.600)	AUPR 0.538 (0.538)	Prec@1 25.000 (25.000)
+Epoch: [9][100/415]	Loss 16.2701 (11.0256)	F1 0.459 (0.466)	AUROC 0.464 (0.500)	AUPR 0.350 (0.328)	Prec@1 56.250 (70.545)
+Epoch: [9][200/415]	Loss 9.9764 (10.9265)	F1 0.500 (0.461)	AUROC 0.571 (0.492)	AUPR 0.365 (0.321)	Prec@1 62.500 (70.274)
+Epoch: [9][300/415]	Loss 9.8151 (10.7284)	F1 0.467 (0.467)	AUROC 0.467 (0.496)	AUPR 0.031 (0.321)	Prec@1 87.500 (71.948)
+Epoch: [9][400/415]	Loss 13.8035 (10.6636)	F1 0.385 (0.469)	AUROC 0.385 (0.500)	AUPR 0.094 (0.312)	Prec@1 62.500 (72.350)
+Epoch: [9][414/415]	Loss 6.1147 (10.6553)	F1 1.000 (0.471)	AUROC 0.500 (0.502)	AUPR 0.500 (0.314)	Prec@1 100.000 (72.472)
+Test: [86/87]	Time 0.040 (0.145)	Loss 0.4088 (0.5100)	F1 1.000 (0.547)	AUROC 0.500 (0.504)	AUPR 0.500 (0.475)	Prec@1 100.000 (88.462)
+ * Prec@1 88.462
+ * F1 0.547
+ * AUROC 0.504
+ * AUPR 0.475
+Epoch: [10][0/415]	Loss 9.4398 (9.4398)	F1 0.467 (0.467)	AUROC 0.467 (0.467)	AUPR 0.031 (0.031)	Prec@1 87.500 (87.500)
+Epoch: [10][100/415]	Loss 11.2035 (10.9115)	F1 0.125 (0.320)	AUROC 0.533 (0.512)	AUPR 0.533 (0.434)	Prec@1 12.500 (37.252)
+Epoch: [10][200/415]	Loss 14.1014 (10.7602)	F1 0.492 (0.328)	AUROC 0.583 (0.527)	AUPR 0.556 (0.449)	Prec@1 50.000 (38.308)
+Epoch: [10][300/415]	Loss 8.5943 (10.7112)	F1 0.304 (0.320)	AUROC 0.500 (0.524)	AUPR 0.500 (0.453)	Prec@1 43.750 (37.251)
+Epoch: [10][400/415]	Loss 8.9271 (10.6497)	F1 0.238 (0.319)	AUROC 0.600 (0.518)	AUPR 0.538 (0.447)	Prec@1 25.000 (37.079)
+Epoch: [10][414/415]	Loss 7.2054 (10.6294)	F1 0.333 (0.320)	AUROC 0.500 (0.518)	AUPR 0.500 (0.447)	Prec@1 50.000 (37.187)
+Test: [86/87]	Time 0.025 (0.142)	Loss 0.8475 (0.8636)	F1 0.000 (0.093)	AUROC 0.500 (0.501)	AUPR 0.500 (0.553)	Prec@1 0.000 (10.668)
+ * Prec@1 10.668
+ * F1 0.093
+ * AUROC 0.501
+ * AUPR 0.553
+Epoch: [11][0/415]	Loss 12.9111 (12.9111)	F1 0.250 (0.250)	AUROC 0.333 (0.333)	AUPR 0.396 (0.396)	Prec@1 25.000 (25.000)
+Epoch: [11][100/415]	Loss 10.3571 (10.7182)	F1 0.484 (0.473)	AUROC 0.500 (0.529)	AUPR 0.531 (0.310)	Prec@1 93.750 (69.802)
+Epoch: [11][200/415]	Loss 13.5820 (10.8552)	F1 0.435 (0.470)	AUROC 0.625 (0.522)	AUPR 0.654 (0.343)	Prec@1 43.750 (68.315)
+Epoch: [11][300/415]	Loss 11.9880 (10.8024)	F1 0.500 (0.469)	AUROC 0.571 (0.527)	AUPR 0.365 (0.344)	Prec@1 62.500 (67.899)
+Epoch: [11][400/415]	Loss 10.5187 (10.8295)	F1 0.365 (0.467)	AUROC 0.643 (0.523)	AUPR 0.583 (0.338)	Prec@1 37.500 (67.238)
+Epoch: [11][414/415]	Loss 5.9056 (10.8055)	F1 1.000 (0.466)	AUROC 0.500 (0.523)	AUPR 0.500 (0.337)	Prec@1 100.000 (67.280)
+Test: [86/87]	Time 0.026 (0.143)	Loss 0.4764 (0.5593)	F1 1.000 (0.553)	AUROC 0.500 (0.504)	AUPR 0.500 (0.475)	Prec@1 100.000 (88.534)
+ * Prec@1 88.534
+ * F1 0.553
+ * AUROC 0.504
+ * AUPR 0.475
+Epoch: [12][0/415]	Loss 13.9031 (13.9031)	F1 0.360 (0.360)	AUROC 0.321 (0.321)	AUPR 0.062 (0.062)	Prec@1 56.250 (56.250)
+Epoch: [12][100/415]	Loss 12.2803 (11.3534)	F1 0.238 (0.304)	AUROC 0.417 (0.511)	AUPR 0.513 (0.455)	Prec@1 25.000 (34.406)
+Epoch: [12][200/415]	Loss 9.8494 (11.2300)	F1 0.273 (0.300)	AUROC 0.500 (0.508)	AUPR 0.500 (0.454)	Prec@1 37.500 (34.017)
+Epoch: [12][300/415]	Loss 10.2145 (11.1293)	F1 0.333 (0.298)	AUROC 0.667 (0.509)	AUPR 0.545 (0.452)	Prec@1 37.500 (34.323)
+Epoch: [12][400/415]	Loss 13.1412 (11.0748)	F1 0.547 (0.301)	AUROC 0.625 (0.511)	AUPR 0.573 (0.453)	Prec@1 56.250 (34.352)
+Epoch: [12][414/415]	Loss 8.5939 (11.0597)	F1 1.000 (0.299)	AUROC 1.000 (0.511)	AUPR 1.000 (0.454)	Prec@1 100.000 (34.168)
+Test: [86/87]	Time 0.024 (0.142)	Loss 0.7170 (0.7344)	F1 0.000 (0.267)	AUROC 0.500 (0.528)	AUPR 0.500 (0.502)	Prec@1 0.000 (28.665)
+ * Prec@1 28.665
+ * F1 0.267
+ * AUROC 0.528
+ * AUPR 0.502
+Epoch: [13][0/415]	Loss 13.7232 (13.7232)	F1 0.417 (0.417)	AUROC 0.458 (0.458)	AUPR 0.424 (0.424)	Prec@1 43.750 (43.750)
+Epoch: [13][100/415]	Loss 10.8635 (10.9990)	F1 0.590 (0.324)	AUROC 0.643 (0.528)	AUPR 0.406 (0.463)	Prec@1 75.000 (37.871)
+Epoch: [13][200/415]	Loss 8.6748 (10.9798)	F1 0.158 (0.316)	AUROC 0.500 (0.509)	AUPR 0.500 (0.448)	Prec@1 18.750 (37.002)
+Epoch: [13][300/415]	Loss 9.8773 (10.8320)	F1 0.459 (0.322)	AUROC 0.767 (0.514)	AUPR 0.562 (0.444)	Prec@1 56.250 (37.853)
+Epoch: [13][400/415]	Loss 10.5487 (10.7674)	F1 0.385 (0.320)	AUROC 0.333 (0.512)	AUPR 0.031 (0.442)	Prec@1 62.500 (37.469)
+Epoch: [13][414/415]	Loss 7.8692 (10.7477)	F1 0.333 (0.322)	AUROC 0.500 (0.515)	AUPR 0.750 (0.445)	Prec@1 50.000 (37.594)
+wandb: Waiting for W&B process to finish... (success).
+wandb: - 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: \ 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: | 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: / 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: - 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: 
+wandb: Run history:
+wandb:  test-aupr ▇██▁██▅▅█▅█▅▆█
+wandb: test-auroc ▂▁▆▃▁▁▂█▁▂▁▂▆▁
+wandb:    test-f1 █▁▂████▄▁█▁█▄▁
+wandb:  test-loss ▂▆▅▃▂▂▁▄█▁▆▂▄█
+wandb: test-prec1 █▁▂████▃▁█▁█▃▁
+wandb: 
+wandb: Run summary:
+wandb:  test-aupr 0.55261
+wandb: test-auroc 0.5
+wandb:    test-f1 0.09099
+wandb:  test-loss 0.94057
+wandb: test-prec1 10.5225
+wandb: 
+wandb: 🚀 View run experiment_bo35vjkk at: https://wandb.ai/mai-cs/OT_ARF12/runs/7u43po8m
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20230221_142021-7u43po8m/logs
+Test: [86/87]	Time 0.030 (0.143)	Loss 0.9183 (0.9406)	F1 0.000 (0.091)	AUROC 0.500 (0.500)	AUPR 0.500 (0.553)	Prec@1 0.000 (10.522)
+ * Prec@1 10.522
+ * F1 0.091
+ * AUROC 0.500
+ * AUPR 0.553
+Best accuracy:  89.47750362844702 Corresponding F1:  0.5475218497760884 Corresponding AUROC:  0.5 Corresponding AUPR:  0.5526124818577649

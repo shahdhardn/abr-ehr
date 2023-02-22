@@ -36,6 +36,7 @@ import wandb
 wandb.login()
 
 parser = argparse.ArgumentParser(description="Imbalanced Example")
+# TODO dataset
 # parser.add_argument(
 #     "--dataset",
 #     default="cifar10",
@@ -51,10 +52,12 @@ parser.add_argument(
 parser.add_argument(
     "--cost", default="combined", type=str, help="[combined, label, feature, twoloss]"
 )
+# TODO meta set
 # parser.add_argument(
 #     "--meta_set", default="prototype", type=str, help="[whole, prototype]"
 # )
 parser.add_argument("--meta_set", default="whole", type=str, help="[whole, prototype]")
+# TODO change batch size
 parser.add_argument(
     "--batch-size",
     type=int,
@@ -62,20 +65,23 @@ parser.add_argument(
     metavar="N",
     help="input batch size for training (default: 16)",
 )
+# TODO number of classes
 # parser.add_argument("--num_classes", type=int, default=10)
 parser.add_argument("--num_classes", type=int, default=2)
+# TODO number of meta data
 parser.add_argument(
     "--num_meta", type=int, default=10, help="The number of meta data for each class."
 )
 parser.add_argument("--imb_factor", type=float, default=0.08)
+# TODO change number of epochs
 # parser.add_argument(
 #     "--epochs", type=int, default=250, metavar="N", help="number of epochs to train"
 # )
 parser.add_argument(
-    "--epochs", type=int, default=12, metavar="N", help="number of epochs to train"
+    "--epochs", type=int, default=14, metavar="N", help="number of epochs to train"
 )
 parser.add_argument(
-    "--lr", "--learning-rate", default=1e-4, type=float, help="initial learning rate"
+    "--lr", "--learning-rate", default=2e-5, type=float, help="initial learning rate"
 )
 parser.add_argument("--momentum", default=0.9, type=float, help="momentum")
 parser.add_argument("--nesterov", default=True, type=bool, help="nesterov momentum")
@@ -229,8 +235,7 @@ def main():
 
     # TODO True
     model = build_model(load_pretrain=False, ckpt_path=ckpt_path)
-    # TODO change to AdamW
-    optimizer_a = torch.optim.AdamW(
+    optimizer_a = torch.optim.SGD(
         [model.linear.weight, model.linear.bias],
         args.lr,
         momentum=args.momentum,
@@ -349,12 +354,8 @@ def train_OT(
 
         weights = to_var(weightsbuffer[ids])
         model.eval()
-        # TODO change to AdamW
-        Attoptimizer = torch.optim.AdamW(
-            [weights],
-            lr=args.lr,
-            momentum=args.momentum,
-            weight_decay=args.weight_decay,
+        Attoptimizer = torch.optim.SGD(
+            [weights], lr=0.01, momentum=0.9, weight_decay=5e-4
         )
 
         for ot_epoch in range(1):
@@ -565,26 +566,11 @@ def build_model(load_pretrain, ckpt_path=None):
     :return: The model is being returned.
     """
 
-    if args.model == "MBertLstm":
-        if torch.cuda.is_available():
-            model = _CustomDataParallel(MBertLstm()).to(device)
-            torch.backends.cudnn.benchmark = True
-        else:
-            model = MBertLstm()
-
-    elif args.model == "Line":
-        if torch.cuda.is_available():
-            model = _CustomDataParallel(Line()).to(device)
-            torch.backends.cudnn.benchmark = True
-        else:
-            model = Line()
-
-    elif args.model == "LineMeta":
-        if torch.cuda.is_available():
-            model = _CustomDataParallel(LineMeta()).to(device)
-            torch.backends.cudnn.benchmark = True
-        else:
-            model = LineMeta()
+    if torch.cuda.is_available():
+        model = _CustomDataParallel(MBertLstm()).to(device)
+        torch.backends.cudnn.benchmark = True
+    else:
+        model = MBertLstm()
 
     if load_pretrain == True:
         checkpoint = torch.load(ckpt_path)
