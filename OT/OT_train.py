@@ -70,7 +70,7 @@ parser.add_argument(
 parser.add_argument("--num_classes", type=int, default=2)
 # TODO number of meta data
 parser.add_argument(
-    "--num_meta", type=int, default=10, help="The number of meta data for each class."
+    "--num_meta", type=int, default=8, help="The number of meta data for each class."
 )
 parser.add_argument("--imb_factor", type=float, default=0.08)
 # TODO change number of epochs
@@ -81,7 +81,7 @@ parser.add_argument(
     "--epochs", type=int, default=14, metavar="N", help="number of epochs to train"
 )
 parser.add_argument(
-    "--lr", "--learning-rate", default=2e-5, type=float, help="initial learning rate"
+    "--lr", "--learning-rate", default=1e-4, type=float, help="initial learning rate"
 )
 parser.add_argument("--momentum", default=0.9, type=float, help="momentum")
 parser.add_argument("--nesterov", default=True, type=bool, help="nesterov momentum")
@@ -102,7 +102,7 @@ parser.add_argument(
     "--print-freq", "-p", default=100, type=int, help="print frequency (default: 100)"
 )
 parser.add_argument("--gpu", default=0, type=int)
-parser.add_argument("--save_name", default="OT_ARF12_imb0.005", type=str)
+parser.add_argument("--save_name", default="OT_ARF12_imb0.08", type=str)
 parser.add_argument("--idx", default="ours", type=str)
 
 parser.add_argument("--model", type=str, default="MBertLstm")
@@ -242,7 +242,11 @@ def main():
         nesterov=args.nesterov,
         weight_decay=args.weight_decay,
     )
-
+    # optimizer_a = torch.optim.AdamW(
+    #     [model.linear.weight, model.linear.bias],
+    #     args.lr,
+    #     weight_decay=args.weight_decay,
+    # )
     cudnn.benchmark = True
     criterion_classifier = nn.CrossEntropyLoss(reduction="none").to(device)
 
@@ -312,6 +316,9 @@ def train_OT(
     criterion_classifier,
 ):
     losses = AverageMeter()
+    otlosses = AverageMeter()
+    train_losses = AverageMeter()
+    val_losses = AverageMeter()
     top1 = AverageMeter()
     f1 = AverageMeter()
     auroc = AverageMeter()
@@ -357,7 +364,9 @@ def train_OT(
         Attoptimizer = torch.optim.SGD(
             [weights], lr=0.01, momentum=0.9, weight_decay=5e-4
         )
-
+        # Attoptimizer = torch.optim.AdamW(
+        #     [weights], lr=args.lr, weight_decay=args.weight_decay
+        # )
         for ot_epoch in range(1):
             feature_train, _ = model(inputs)
             probability_train = softmax_normalize(weights)
@@ -398,7 +407,7 @@ def train_OT(
             Attoptimizer.zero_grad()
             OTloss.backward(retain_graph=False)
             Attoptimizer.step()
-
+            
         weightsbuffer[ids] = weights.data
 
         model.train()
@@ -407,8 +416,7 @@ def train_OT(
         loss_train = criterion_classifier(logits, labels.long())
         _, logits_val = model(val_data)
         loss_val = F.cross_entropy(logits_val, val_labels.long(), reduction="none")
-
-        loss = torch.sum(loss_train * weights.data) + 10 * torch.mean(loss_val)
+        loss = torch.sum(loss_train * weights.data) + 8 * torch.mean(loss_val)
         loss.backward(retain_graph=False)
         optimizer.step()
 
@@ -421,7 +429,10 @@ def train_OT(
             au_roc = [0.0]
         au_pr = calc_aupr(logits.data, labels)[0]
 
+        otlosses.update(OTloss.item(), labels.size(0))
         losses.update(loss.item(), labels.size(0))
+        train_losses.update(loss_train.mean().item(), labels.size(0))
+        val_losses.update(loss_val.mean().item(), labels.size(0))
         top1.update(prec_train.item(), labels.size(0))
         f1.update(f1_acc.item(), labels.size(0))
         auroc.update(au_roc, labels.size(0))
@@ -444,6 +455,18 @@ def train_OT(
                     top1=top1,
                 )
             )
+    wandb.log(
+        {
+            "train-otloss": otlosses.avg,
+            "loss": losses.avg,
+            "train-loss": train_losses.avg,
+            "val-loss": val_losses.avg,
+            "train-prec1": top1.avg,
+            "train-f1": f1.avg,
+            "train-auroc": auroc.avg,
+            "train-aupr": aupr.avg,
+        }
+    )
 
 
 def validate(test_loader, model):
@@ -566,11 +589,19 @@ def build_model(load_pretrain, ckpt_path=None):
     :return: The model is being returned.
     """
 
-    if torch.cuda.is_available():
-        model = _CustomDataParallel(MBertLstm()).to(device)
-        torch.backends.cudnn.benchmark = True
-    else:
-        model = MBertLstm()
+    if args.model == "MBertLstm":
+        if torch.cuda.is_available():
+            model = _CustomDataParallel(MBertLstm()).to(device)
+            torch.backends.cudnn.benchmark = True
+        else:
+            model = MBertLstm()
+
+    elif args.model == "MBertCnn":
+        if torch.cuda.is_available():
+            model = _CustomDataParallel(MBertCnn()).to(device)
+            torch.backends.cudnn.benchmark = True
+        else:
+            model = MBertCnn()
 
     if load_pretrain == True:
         checkpoint = torch.load(ckpt_path)
