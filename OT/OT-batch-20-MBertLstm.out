@@ -1,0 +1,62 @@
+wandb: Currently logged in as: mai-cs (abr-ehr). Use `wandb login --relogin` to force relogin
+dataset=mimic
+cost=combined
+meta_set=whole
+batch_size=20
+num_classes=2
+num_meta=10
+imb_factor=0.08
+epochs=200
+lr=0.0001
+momentum=0.9
+nesterov=True
+weight_decay=0.0005
+no_cuda=False
+print_freq=100
+gpu=0
+save_name=OT_ARF12_imb0.08
+idx=ours
+model=MBertLstm
+seed=42
+[10, 10]
+Numper of samples per class:  [5924, 702]
+Imbalance factor:  0.08438746438746439
+train data size:  6626
+meta data size:  20
+test data size:  1378
+train batches=  332  batches
+meta batches=  1  batches
+test batches=  69  batches
+wandb: wandb version 0.13.10 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.13.9
+wandb: Run data is saved locally in /home/mai.kassem/sources/abr-ehr/OT/wandb/run-20230301_220638-ppkpcsrb
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run experiment_6sxrdz79
+wandb: ⭐️ View project at https://wandb.ai/abr-ehr/OT_ARF12
+wandb: 🚀 View run at https://wandb.ai/abr-ehr/OT_ARF12/runs/ppkpcsrb
+meta_class_counts:  [10, 10]
+(array([0, 1]), array([10, 10]))
+Epoch: [0][0/332]	Loss 20.6665 (20.6665)	F1 0.853 (0.853)	AUROC 0.778 (0.778)	AUPR 0.176 (0.176)	Prec@1 90.000 (90.000)
+Epoch: [0][100/332]	Loss 9.5370 (14.9365)	F1 0.824 (0.628)	AUROC nan (nan)	AUPR 0.500 (0.227)	Prec@1 70.000 (55.792)
+Epoch: [0][200/332]	Loss 13.3866 (14.1578)	F1 0.493 (0.619)	AUROC 0.105 (nan)	AUPR 0.028 (0.230)	Prec@1 35.000 (55.000)
+Epoch: [0][300/332]	Loss 12.5628 (13.6641)	F1 0.182 (0.621)	AUROC nan (nan)	AUPR 0.500 (0.237)	Prec@1 10.000 (55.100)
+Epoch: [0][331/332]	Loss 7.5055 (13.5906)	F1 0.667 (0.620)	AUROC 0.400 (nan)	AUPR 0.125 (0.232)	Prec@1 66.667 (54.980)
+Test: [68/69]	Time 0.099 (0.132)	Loss 0.6476 (0.6579)	F1 0.716 (0.689)	AUROC 0.588 (nan)	AUPR 0.062 (0.210)	Prec@1 61.111 (61.538)
+ * Prec@1 61.538
+ * F1 0.689
+ * AUROC nan
+ * AUPR 0.210
+(array([0, 1]), array([10, 10]))
+Epoch: [1][0/332]	Loss 12.3858 (12.3858)	F1 0.653 (0.653)	AUROC 0.627 (0.627)	AUPR 0.447 (0.447)	Prec@1 60.000 (60.000)
+Epoch: [1][100/332]	Loss 6.9742 (11.9854)	F1 0.947 (0.629)	AUROC nan (nan)	AUPR 0.500 (0.229)	Prec@1 90.000 (56.188)
+Epoch: [1][200/332]	Loss 12.2207 (12.1477)	F1 0.900 (0.623)	AUROC 0.667 (nan)	AUPR 0.325 (0.214)	Prec@1 90.000 (55.547)
+Epoch: [1][300/332]	Loss 11.8456 (12.1881)	F1 0.200 (0.620)	AUROC 0.694 (nan)	AUPR 0.189 (0.207)	Prec@1 20.000 (55.299)
+Epoch: [1][331/332]	Loss 7.5165 (12.1910)	F1 0.417 (0.622)	AUROC 0.000 (nan)	AUPR 0.083 (0.206)	Prec@1 33.333 (55.418)
+Test: [68/69]	Time 0.113 (0.130)	Loss 1.0607 (1.0498)	F1 0.111 (0.126)	AUROC 0.471 (nan)	AUPR 0.050 (0.212)	Prec@1 11.111 (15.239)
+ * Prec@1 15.239
+ * F1 0.126
+ * AUROC nan
+ * AUPR 0.212
+(array([0, 1]), array([10, 10]))
+slurmstepd-gpu-13: error: *** STEP 119919.0 ON gpu-13 CANCELLED AT 2023-03-01T22:16:03 ***

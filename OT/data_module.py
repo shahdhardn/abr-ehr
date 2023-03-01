@@ -12,6 +12,7 @@ import sparse
 from transformers import BertTokenizer
 from pandarallel import pandarallel
 import h5py
+import copy
 
 
 class EHRDataset(Dataset):
@@ -404,22 +405,41 @@ class MimicDataModule(pl.LightningDataModule):
         )
 
     def meta_dataloader(self):
+        # create balanced validation set
+        num_classes = len(np.unique(self.meta.y))
+        data_list_val = {}
+        for j in range(num_classes):
+            data_list_val[j] = [i for i, label in enumerate(self.meta.y) if label == j]
+
+        img_num_list = [10] * num_classes
+        idx_to_meta = []
+        idx_to_train = []
+        print(img_num_list)
+
+        for cls_idx, img_id_list in data_list_val.items():
+            np.random.shuffle(img_id_list)
+            img_num = img_num_list[int(cls_idx)]
+            idx_to_meta.extend(img_id_list[:img_num])
+            idx_to_train.extend(img_id_list[img_num:])
+
+        self.meta.X = np.delete(self.meta.X, idx_to_train, axis=0)
+        self.meta.y = np.delete(self.meta.y, idx_to_train, axis=0)
+
         # each batch has balanced distribution of labels
-        target = self.meta.y
-        class_sample_count = np.array(
-            [len(np.where(target == t)[0]) for t in np.unique(target)]
-        )
-        weight = 1.0 / class_sample_count
-        samples_weight = np.array([weight[t] for t in target])
-        samples_weight = torch.from_numpy(samples_weight)
-        samples_weight = samples_weight.double()
-        sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
+        # targets = self.meta.y
+        # class_sample_count = np.array(
+        #     [len(np.where(targets == t)[0]) for t in np.unique(targets)]
+        # )
+        # weight = 1.0 / class_sample_count
+        # samples_weight = np.array([weight[t] for t in targets])
+        # samples_weight = torch.from_numpy(samples_weight)
+        # samples_weight = samples_weight.double()
+        # sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
 
         return DataLoader(
             self.meta,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            sampler=sampler,
             shuffle=False,
         )
 

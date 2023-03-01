@@ -174,41 +174,6 @@ class MetaConv2d(MetaModule):
         return [("weight", self.weight), ("bias", self.bias)]
 
 
-class MetaConv1d(MetaModule):
-    def __init__(self, *args, **kwargs):
-        super().__init__()
-        ignore = nn.Conv1d(*args, **kwargs)
-
-        self.in_channels = ignore.in_channels
-        self.out_channels = ignore.out_channels
-        self.stride = ignore.stride
-        self.padding = ignore.padding
-        self.dilation = ignore.dilation
-        self.groups = ignore.groups
-        self.kernel_size = ignore.kernel_size
-
-        self.register_buffer("weight", to_var(ignore.weight.data, requires_grad=True))
-
-        if ignore.bias is not None:
-            self.register_buffer("bias", to_var(ignore.bias.data, requires_grad=True))
-        else:
-            self.register_buffer("bias", None)
-
-    def forward(self, x):
-        return F.conv1d(
-            x,
-            self.weight,
-            self.bias,
-            self.stride,
-            self.padding,
-            self.dilation,
-            self.groups,
-        )
-
-    def named_leaves(self):
-        return [("weight", self.weight), ("bias", self.bias)]
-
-
 class MetaConvTranspose2d(MetaModule):
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -285,11 +250,7 @@ class MetaBatchNorm2d(MetaModule):
 
 def _weights_init(m):
     classname = m.__class__.__name__
-    if (
-        isinstance(m, MetaLinear)
-        or isinstance(m, MetaConv2d)
-        or isinstance(m, MetaConv1d)
-    ):
+    if isinstance(m, MetaLinear) or isinstance(m, MetaConv2d):
         init.kaiming_normal(m.weight)
 
 
@@ -435,6 +396,7 @@ class MBertLstm(MetaModule):
         self.lr = lr
 
         self.ti_enc = MetaLinear(ti_input_size, ti_norm_size)
+        self.ti_enc.apply(_weights_init)
 
         self.ts_enc = base.Lstm(
             input_size=ts_input_size,
@@ -450,7 +412,7 @@ class MBertLstm(MetaModule):
         # self.linear = nn.Linear(bert_size, output_size)
         self.linear = MetaLinear(bert_size, output_size)
 
-        self.apply(_weights_init)
+        self.linear.apply(_weights_init)
 
     def forward(self, x):
         ti = self.ti_enc(x[0][0])
@@ -460,116 +422,3 @@ class MBertLstm(MetaModule):
         # return torch.sigmoid(self.pred(fusion)).squeeze(1)
         return fusion, self.linear(fusion)
 
-
-class MBertCnn(MetaModule):
-    def __init__(
-        self,
-        pretrained_bert_dir: str = PRETRAIN_CHECKPOINT_PATH,
-        ti_input_size: int = 96,
-        ti_norm_size: int = 64,
-        ts_input_size: int = 5132,
-        ts_norm_size: int = 1024,
-        n_neurons: int = 512,
-        bert_size: int = 768,
-        output_size: int = 2,
-        num_layers: int = 1,
-        dropout: int = 0.1,
-        num_training_steps: int = 1000,
-        warmup_proportion: float = 0.1,
-        lr: float = 5e-5,
-        **kwargs: Any
-    ) -> None:
-        super().__init__()
-        # self.save_hyperparameters()
-        self.num_training_steps = num_training_steps
-        self.warmup_proportion = warmup_proportion
-        self.lr = lr
-
-        self.ti_enc = MetaLinear(ti_input_size, ti_norm_size)
-
-        self.ts_enc = Cnn(
-            input_size=ts_input_size,
-            length=12,
-            depth=1,
-            filter_size=3,
-            n_filters=64,
-            n_neurons=ts_norm_size,
-            dropout=dropout,
-            stride=1,
-            padding=1,
-            bias=False,
-        )
-
-        self.nt_enc = base.Bert(pretrained_bert_dir=pretrained_bert_dir)
-
-        self.gate = base.Gate(bert_size, ti_norm_size, n_neurons, dropout)
-
-        # self.linear = nn.Linear(bert_size, output_size)
-        self.linear = MetaLinear(bert_size, output_size)
-
-        self.apply(_weights_init)
-
-    def forward(self, x):
-        ti = self.ti_enc(x[0][0])
-        ts = self.ts_enc(x[0][1])
-        nt = self.nt_enc(x[1:])
-        fusion = self.gate(nt, ti, ts)
-        # return torch.sigmoid(self.pred(fusion)).squeeze(1)
-        return fusion, self.linear(fusion)
-
-
-class Cnn(nn.Module):
-    def __init__(
-        self,
-        input_size: int = 7508,
-        length: int = 48,
-        depth: int = 2,
-        filter_size: int = 3,
-        n_filters: int = 64,
-        n_neurons: int = 64,
-        dropout: float = 0.2,
-        stride=1,
-        padding=1,
-        bias=False,
-    ) -> None:
-        super().__init__()
-        self.depth = depth
-        padding = int(np.floor(filter_size / 2))
-
-        if depth == 1:
-            self.conv1 = nn.Conv1d(input_size, n_filters, filter_size, padding=padding)
-            
-            self.pool1 = nn.MaxPool1d(2, 2)
-            self.fc1 = MetaLinear(int(length * n_filters / 2), n_neurons)
-            self.fc1_drop = nn.Dropout(dropout)
-
-        elif depth == 2:
-            self.conv1 = nn.Conv1d(input_size, n_filters, filter_size, padding=padding)
-            self.pool1 = nn.MaxPool1d(2, 2)
-            self.conv2 = nn.Conv1d(n_filters, n_filters, filter_size, padding=padding)
-            self.pool2 = nn.MaxPool1d(2, 2)
-            self.fc1 = nn.Linear(int(length * n_filters / 4), n_neurons)
-            self.fc1_drop = nn.Dropout(dropout)
-
-        elif depth == 3:
-            self.conv1 = nn.Conv1d(input_size, n_filters, filter_size, padding=padding)
-            self.pool1 = nn.MaxPool1d(2, 2)
-            self.conv2 = nn.Conv1d(n_filters, n_filters, filter_size, padding=padding)
-            self.pool2 = nn.MaxPool1d(2, 2)
-            self.conv3 = nn.Conv1d(n_filters, n_filters, filter_size, padding=padding)
-            self.pool3 = nn.MaxPool1d(2, 2)
-            self.fc1 = nn.Linear(int(length * n_filters / 8), n_neurons)
-            self.fc1_drop = nn.Dropout(dropout)
-
-    def forward(self, x):
-        x = x.transpose(1, 2)
-
-        x = self.pool1(F.relu(self.conv1(x)))
-        if self.depth == 2 or self.depth == 3:
-            x = self.pool2(F.relu(self.conv2(x)))
-        if self.depth == 3:
-            x = self.pool3(F.relu(self.conv3(x)))
-
-        x = x.view(x.size(0), -1)
-        x = F.relu(self.fc1_drop(self.fc1(x)))
-        return x

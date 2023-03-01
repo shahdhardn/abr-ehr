@@ -61,7 +61,7 @@ parser.add_argument("--meta_set", default="whole", type=str, help="[whole, proto
 parser.add_argument(
     "--batch-size",
     type=int,
-    default=16,
+    default=20,
     metavar="N",
     help="input batch size for training (default: 16)",
 )
@@ -70,7 +70,7 @@ parser.add_argument(
 parser.add_argument("--num_classes", type=int, default=2)
 # TODO number of meta data
 parser.add_argument(
-    "--num_meta", type=int, default=8, help="The number of meta data for each class."
+    "--num_meta", type=int, default=10, help="The number of meta data for each class."
 )
 parser.add_argument("--imb_factor", type=float, default=0.08)
 # TODO change number of epochs
@@ -165,29 +165,32 @@ random.seed(args.seed)
 torch.manual_seed(args.seed)
 classe_labels = range(args.num_classes)
 
-samples_num_list = get_samples_num_per_cls(
-    args.dataset,
-    args.imb_factor,
-    args.num_meta * args.num_classes,
-    len(imbalanced_train_loader.dataset.y),
-)
-print(samples_num_list)
-print(sum(samples_num_list))
+# samples_num_list = get_samples_num_per_cls(
+#     args.dataset,
+#     args.imb_factor,
+#     args.num_meta * args.num_classes,
+#     len(imbalanced_train_loader.dataset.y),
+# )
+# print(samples_num_list)
+# print(sum(samples_num_list))
 
 best_prec1 = 0
 best_f1 = 0
 best_auroc = 0
 best_aupr = 0
 
+# Assigning weights to each datapoint
 beta = 0.9999
-effective_num = 1.0 - np.power(beta, samples_num_list)
+effective_num = 1.0 - np.power(beta, class_counts)
 per_cls_weights = (1.0 - beta) / np.array(effective_num)
-per_cls_weights = per_cls_weights / np.sum(per_cls_weights) * len(samples_num_list)
+per_cls_weights = per_cls_weights / np.sum(per_cls_weights) * len(class_counts)
 per_cls_weights = torch.FloatTensor(per_cls_weights).to(device)
 weights = torch.tensor(per_cls_weights).float()
 weightsbuffer = torch.tensor(
     [per_cls_weights[cls_i] for cls_i in imbalanced_train_labels]
 ).to(device)
+
+# breakpoint()
 
 eplisons = 0.1
 criterion = SinkhornDistance(eps=eplisons, max_iter=200, reduction=None, dis="cos").to(
@@ -327,10 +330,13 @@ def train_OT(
     model.train()
 
     val_data, val_labels, _ = next(iter(validation_loader))
+    print(np.unique(val_labels.cpu(), return_counts=True))
     val_data[0][0], val_data[0][1], val_data[1], val_data[2], val_data[3] = to_var_x(
         val_data, requires_grad=False
     )
     val_labels = to_var(val_labels, requires_grad=False).squeeze()
+
+    # breakpoint()
 
     if args.meta_set == "whole":
         val_data_bycls = val_data
@@ -358,6 +364,8 @@ def train_OT(
         ids = ids.to(device)
         labels = labels.squeeze()
         labels_onehot = to_categorical(labels).to(device)
+
+        # breakpoint()
 
         weights = to_var(weightsbuffer[ids])
         model.eval()
@@ -407,8 +415,10 @@ def train_OT(
             Attoptimizer.zero_grad()
             OTloss.backward(retain_graph=False)
             Attoptimizer.step()
-            
+
         weightsbuffer[ids] = weights.data
+
+        # breakpoint()
 
         model.train()
         optimizer.zero_grad()
@@ -416,9 +426,11 @@ def train_OT(
         loss_train = criterion_classifier(logits, labels.long())
         _, logits_val = model(val_data)
         loss_val = F.cross_entropy(logits_val, val_labels.long(), reduction="none")
-        loss = torch.sum(loss_train * weights.data) + 8 * torch.mean(loss_val)
+        loss = torch.sum(loss_train * weights.data) + 10 * torch.mean(loss_val)
         loss.backward(retain_graph=False)
         optimizer.step()
+
+        # breakpoint()
 
         prec_train = accuracy(logits.data, labels, topk=(1,))[0]
         f1_acc = calc_f1(logits.data, labels)[0]
@@ -724,7 +736,7 @@ def calc_f1(output, target):
         _, pred = output.topk(1, 1, True, True)
         pred = pred.t()
 
-    return [metrics.f1_score(target.cpu(), pred.squeeze(0).cpu(), average="macro")]
+    return [metrics.f1_score(target.cpu(), pred.squeeze(0).cpu(), average="weighted")]
 
 
 def calc_auroc(output, target):
@@ -736,15 +748,37 @@ def calc_auroc(output, target):
     :return: The area under the ROC curve.
     """
     with torch.no_grad():
-        _, pred = output.topk(1, 1, True, True)
-        pred = pred.t()
+        org_preds = output.softmax(dim=1)
+        # org_preds = (org_preds[:,0] <0.5).int()
 
-    try:
-        au_roc = metrics.roc_auc_score(target.cpu(), pred.squeeze(0).cpu())
-    except:
-        au_roc = 0.5
+        # test_preds = org_preds.view(-1).cpu().detach().numpy()
+        test_truth = target.view(-1).cpu().detach().numpy()
 
-    return [au_roc]
+        fpr_roc, tpr_roc, thresholds_roc = metrics.roc_curve(
+            test_truth, org_preds[:, 1].view(-1).cpu().detach().numpy(), pos_label=1
+        )
+        au_roc = metrics.auc(fpr_roc, tpr_roc)
+        # print("AUC: {}".format(np.round(au_roc,4)))
+        return [au_roc]
+
+    #     precision, recall, _ = precision_recall_curve(test_truth, org_preds[:,1].view(-1).cpu().detach().numpy())
+    #     au_pr = auc(recall, precision)
+    #     print("AUPRC: {}".format(np.round(au_pr,4)))
+
+    #     # ''auprc': au_pr,
+    #     print("-" * 50)
+    #     #'auc':au_roc,
+    #     return {'f1':f1, 'acc':acc, 'auc':au_roc,'auprc': au_pr}
+
+    #     # _, pred = output.topk(1, 1, True, True)
+    #     # pred = pred.t()
+
+    # try:
+    #     au_roc = metrics.roc_auc_score(target.cpu(), pred.squeeze(0).cpu())
+    # except:
+    #     au_roc = 0.5
+
+    # return [au_roc]
 
 
 def calc_aupr(output, target):
@@ -756,16 +790,29 @@ def calc_aupr(output, target):
     :return: The area under the precision-recall curve.
     """
     with torch.no_grad():
-        _, pred = output.topk(1, 1, True, True)
-        pred = pred.t()
+        org_preds = output.softmax(dim=1)
+        # org_preds = (org_preds[:,0] <0.5).int()
 
-    precision, recall, _ = metrics.precision_recall_curve(
-        target.cpu(), pred.squeeze(0).cpu()
-    )
+        # test_preds = org_preds.view(-1).cpu().detach().numpy()
+        test_truth = target.view(-1).cpu().detach().numpy()
 
-    au_pr = metrics.auc(recall, precision)
+        precision, recall, _ = metrics.precision_recall_curve(
+            test_truth, org_preds[:, 1].view(-1).cpu().detach().numpy()
+        )
+        au_pr = metrics.auc(recall, precision)
+        # print("AUPRC: {}".format(np.round(au_pr,4)))
+        return [au_pr]
 
-    return [au_pr]
+    #     _, pred = output.topk(1, 1, True, True)
+    #     pred = pred.t()
+
+    # precision, recall, _ = metrics.precision_recall_curve(
+    #     target.cpu(), pred.squeeze(0).cpu()
+    # )
+
+    # au_pr = metrics.auc(recall, precision)
+
+    # return [au_pr]
 
 
 def save_checkpoint(args, state, is_best):
