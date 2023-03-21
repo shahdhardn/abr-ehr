@@ -252,6 +252,8 @@ def _weights_init(m):
     classname = m.__class__.__name__
     if isinstance(m, MetaLinear) or isinstance(m, MetaConv2d):
         init.kaiming_normal(m.weight)
+    elif isinstance(m, MetaLstm):
+        init.kaiming_normal(m.weight_ih_l0)
 
 
 class LambdaLayer(MetaModule):
@@ -371,6 +373,53 @@ class BinaryClassification(MetaModule):
 PRETRAIN_CHECKPOINT_PATH = "/l/users/mai.kassem/datasets/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin"
 
 
+class MetaLstm(MetaModule):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
+        self.ignore = nn.LSTM(*args, **kwargs)
+        self.input_size = self.ignore.input_size
+        self.hidden_size = self.ignore.hidden_size
+        self.num_layers = self.ignore.num_layers
+        # self.batch_first = ignore.batch_first
+
+        self.register_buffer(
+            "weight_ih_l0", to_var(self.ignore.weight_ih_l0.data, requires_grad=True)
+        )
+        self.register_buffer(
+            "weight_hh_l0", to_var(self.ignore.weight_hh_l0.data, requires_grad=True)
+        )
+        self.register_buffer(
+            "bias_ih_l0", to_var(self.ignore.bias_ih_l0.data, requires_grad=True)
+        )
+        self.register_buffer(
+            "bias_hh_l0", to_var(self.ignore.bias_hh_l0.data, requires_grad=True)
+        )
+
+        self.project = nn.Linear(self.hidden_size, 512)  # number of neurons is 512
+        self.drop = nn.Dropout(0.0)  # dropout is 0.0
+
+    def forward(self, x):
+        # self.lstm.flatten_parameters()
+        # h_all, (h_T, c_T) = self.lstm(x)
+        dict_parms = {
+            "weight_ih_l0": self.weight_ih_l0,
+            "weight_hh_l0": self.weight_hh_l0,
+            "bias_ih_l0": self.bias_ih_l0,
+            "bias_hh_l0": self.bias_hh_l0,
+            "num_layers": self.num_layers,
+            "input_size": self.input_size,
+            "hidden_size": self.hidden_size,
+        }
+        h_all, (h_T, c_T) = nn.utils.stateless.functional_call(
+            self.ignore, dict_parms, (x)
+        )
+        output = h_T[-1]
+        return F.relu(self.drop(self.project(output)))
+
+    def named_leaves(self):
+        return [("weight_ih_l0", self.weight_ih_l0), ("bias_ih_l0", self.bias_ih_l0)]
+
+
 class MBertLstm(MetaModule):
     def __init__(
         self,
@@ -421,4 +470,3 @@ class MBertLstm(MetaModule):
         fusion = self.gate(nt, ti, ts)
         # return torch.sigmoid(self.pred(fusion)).squeeze(1)
         return fusion, self.linear(fusion)
-

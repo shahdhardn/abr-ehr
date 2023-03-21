@@ -15,9 +15,65 @@ import h5py
 import copy
 
 
+# class EHRDataset(Dataset):
+#     def __init__(self, split, notes, discrete, merge):
+#         self.class_indices = {}
+#         self.notes = notes
+#         self.discrete = discrete
+#         self.merge = merge
+#         self.X = split["X"][()]
+#         self.s = split["S"][()]
+#         self.y = split["label"][()]
+#         assert len(self.X) == len(self.s) and len(self.X) == len(self.y)
+#         if self.notes:
+#             if self.discrete:
+#                 self.time = split["time"][()]
+#             self.input_ids = split["input_ids"][()]
+#             self.token_type_ids = split["token_type_ids"][()]
+#             self.attention_mask = split["attention_mask"][()]
+#             assert len(self.input_ids) == len(self.y)
+
+#     def __getitem__(self, index):
+#         xi = self.X[index]
+#         si = self.s[index]
+#         L, D = xi.shape
+#         if self.merge:
+#             xi = np.hstack((xi, np.tile(si, (L, 1))))  # time dependent
+#             x = torch.from_numpy(xi).float()
+#         else:
+#             si = torch.from_numpy(si).float()  # time invariant
+#             xi = torch.from_numpy(xi).float()
+#             x = (si, xi)
+#         if self.notes:
+#             if self.discrete:
+#                 base = torch.zeros((L, self.input_ids[0].shape[-1]))
+#                 input_ids = torch.scatter(
+#                     base, 0, self.time[index], self.input_ids[index]
+#                 )
+#                 token_type_ids = torch.scatter(
+#                     base, 0, self.time[index], self.token_type_ids[index]
+#                 )
+#                 attention_mask = torch.scatter(
+#                     base, 0, self.time[index], self.attention_mask[index]
+#                 )
+#             else:
+#                 input_ids = torch.tensor(self.input_ids[index])
+#                 token_type_ids = torch.tensor(self.token_type_ids[index])
+#                 attention_mask = torch.tensor(self.attention_mask[index])
+#             x = (x, input_ids, token_type_ids, attention_mask)
+#         # y = torch.tensor(self.y[index]).float()
+#         target = self.y[index]
+#         if target not in self.class_indices:
+#             self.class_indices[target] = index
+#         y = torch.LongTensor([np.int64(self.y[index])])
+#         return x, y, index
+
+#     def __len__(self):
+#         return len(self.y)
+
+
 class EHRDataset(Dataset):
     def __init__(self, split, notes, discrete, merge):
-        self.class_indices = {}
         self.notes = notes
         self.discrete = discrete
         self.merge = merge
@@ -61,12 +117,8 @@ class EHRDataset(Dataset):
                 token_type_ids = torch.tensor(self.token_type_ids[index])
                 attention_mask = torch.tensor(self.attention_mask[index])
             x = (x, input_ids, token_type_ids, attention_mask)
-        # y = torch.tensor(self.y[index]).float()
-        target = self.y[index]
-        if target not in self.class_indices:
-            self.class_indices[target] = index
-        y = torch.LongTensor([np.int64(self.y[index])])
-        return x, y, index
+            y = torch.LongTensor([np.int64(self.y[index])])
+        return x, y, index  
 
     def __len__(self):
         return len(self.y)
@@ -406,39 +458,22 @@ class MimicDataModule(pl.LightningDataModule):
 
     def meta_dataloader(self):
         # create balanced validation set
-        num_classes = len(np.unique(self.meta.y))
-        data_list_val = {}
-        for j in range(num_classes):
-            data_list_val[j] = [i for i, label in enumerate(self.meta.y) if label == j]
+        idx = np.where(np.array(self.meta.y) == 0)[0]
+        np.random.shuffle(idx)
+        idx = idx[10:]
 
-        img_num_list = [10] * num_classes
-        idx_to_meta = []
-        idx_to_train = []
-        print(img_num_list)
+        idx_1 = np.where(np.array(self.meta.y) == 1)[0]
+        np.random.shuffle(idx_1)
+        idx_1 = idx_1[10:]
+        idx = np.concatenate((idx, idx_1))
+        self.meta.X = np.delete(self.meta.X, idx, axis=0)
+        self.meta.y = np.delete(self.meta.y, idx, axis=0)
 
-        for cls_idx, img_id_list in data_list_val.items():
-            np.random.shuffle(img_id_list)
-            img_num = img_num_list[int(cls_idx)]
-            idx_to_meta.extend(img_id_list[:img_num])
-            idx_to_train.extend(img_id_list[img_num:])
-
-        self.meta.X = np.delete(self.meta.X, idx_to_train, axis=0)
-        self.meta.y = np.delete(self.meta.y, idx_to_train, axis=0)
-
-        # each batch has balanced distribution of labels
-        # targets = self.meta.y
-        # class_sample_count = np.array(
-        #     [len(np.where(targets == t)[0]) for t in np.unique(targets)]
-        # )
-        # weight = 1.0 / class_sample_count
-        # samples_weight = np.array([weight[t] for t in targets])
-        # samples_weight = torch.from_numpy(samples_weight)
-        # samples_weight = samples_weight.double()
-        # sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
+        print(len(self.meta.y), len(self.meta.X))
 
         return DataLoader(
             self.meta,
-            batch_size=self.batch_size,
+            batch_size=20,
             num_workers=self.num_workers,
             shuffle=False,
         )
@@ -448,5 +483,5 @@ class MimicDataModule(pl.LightningDataModule):
             self.test,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            shuffle=False,
+            shuffle=True,
         )
