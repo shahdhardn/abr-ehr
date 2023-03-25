@@ -51,7 +51,9 @@ def main(args):
     name = args.model
     project = f"{args.task}_{args.duration}_{args.model}"
     print(f"Run {project}: {name}")
-    wandb_logger = WandbLogger(project=project, name=name, offline=False)
+    wandb_logger = WandbLogger(
+        entity="abr-ehr", project=project, name=name, offline=False
+    )
     trainer = pl.Trainer.from_argparse_args(
         args,
         logger=wandb_logger,

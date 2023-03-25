@@ -22,14 +22,12 @@ from Sinkhorn_distance_fl import SinkhornDistance as SinkhornDistance_fl
 from sklearn import metrics
 from data_module import *
 
-import pytorch_lightning as pl
-from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from models import *
 
 from data_module import MimicDataModule
 from data_utils import *
+
+from torchmetrics.classification import BinaryAUROC
 
 # Log in to your W&B account
 import wandb
@@ -79,7 +77,7 @@ parser.add_argument("--imb_factor", type=float, default=0.08)
 #     "--epochs", type=int, default=250, metavar="N", help="number of epochs to train"
 # )
 parser.add_argument(
-    "--epochs", type=int, default=20, metavar="N", help="number of epochs to train"
+    "--epochs", type=int, default=50, metavar="N", help="number of epochs to train"
 )
 parser.add_argument(
     "--start_epoch",
@@ -95,12 +93,12 @@ parser.add_argument(
     "--lr", "--learning_rate", default=0.1, type=float, help="initial learning rate"
 )
 parser.add_argument(
-    "--cos", default=True, type=bool, help="lr decays by cosine scheduler. "
+    "--cos", default=False, type=bool, help="lr decays by cosine scheduler. "
 )
 # TODO change number according to the number of epochs
 parser.add_argument(
     "--schedule",
-    default=[80, 90],
+    default=[30, 45],
     nargs="*",
     type=int,
     help="learning rate schedule (when to drop lr by 10x)",
@@ -235,6 +233,7 @@ criterion_fl = SinkhornDistance_fl(eps=eplisons, max_iter=200, reduction=None).t
 run = wandb.util.generate_id()
 args.save_name = f"exp_{run}_{args.model}_{args.batch_size}"
 wandb.init(
+    entity="abr-ehr",
     # Set the project where this run will be logged
     project="OT_ARF12",
     # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
@@ -253,7 +252,7 @@ wandb.init(
 
 
 def main():
-    global args, best_prec1, best_f1
+    global args, best_prec1, best_auroc, best_aupr, best_f1
     args = parser.parse_args()
 
     # if args.dataset == "cifar10":
@@ -294,11 +293,11 @@ def main():
 
     cudnn.benchmark = True
     criterion_classifier = nn.CrossEntropyLoss(reduction="none").to(device)
+    # criterion_classifier = nn.BCEWithLogitsLoss(reduction="none").to(device)
 
     for epoch in range(args.start_epoch, args.epochs):
-        # adjust_lr(optimizer_a, epoch)
-        # print current lr
-        # print("Overall lr: ", optimizer_a.param_groups[0]["lr"])
+        adjust_lr(optimizer_a, epoch)
+        print("Overall lr: ", optimizer_a.param_groups[0]["lr"])
 
         train_OT(
             imbalanced_train_loader,
@@ -316,11 +315,8 @@ def main():
 
         prec1, f1, auroc, aupr, preds, gt_labels = validate(test_loader, model)
 
-        is_best = prec1 > best_prec1
-        best_prec1 = max(prec1, best_prec1)
-
-        # is_best = f1 > best_f1
-        # best_f1 = max(f1, best_f1)
+        is_best = auroc > best_auroc
+        best_auroc = max(auroc, best_auroc)
 
         if is_best:
             weightsbuffer_bycls = []
@@ -328,10 +324,8 @@ def main():
                 weightsbuffer_bycls.extend(
                     weightsbuffer[imbalanced_train_labels == i_cls].data.cpu().numpy()
                 )
-            # best_prec1 = prec1
-            best_f1 = f1
+            corresponding_prec1 = prec1
             corresponding_f1 = f1
-            corresponding_auroc = auroc
             corresponding_aupr = aupr
 
         save_checkpoint(
@@ -339,10 +333,9 @@ def main():
             {
                 "epoch": epoch + 1,
                 "state_dict": model.state_dict(),
-                "best_acc1": best_prec1,
-                "best_f1": best_f1,
+                "best_auroc": best_auroc,
+                "corresponding_prec1": corresponding_prec1,
                 "corresponding_f1": corresponding_f1,
-                "corresponding_auroc": corresponding_auroc,
                 "corresponding_aupr": corresponding_aupr,
                 "optimizer": optimizer_a.state_dict(),
                 "weights": weightsbuffer_bycls,
@@ -351,12 +344,12 @@ def main():
         )
 
     print(
-        "Best accuracy: ",
-        best_prec1,
+        "Best AUROC: ",
+        best_auroc,
+        "Corresponding accuracy: ",
+        corresponding_prec1,
         "Corresponding F1: ",
         corresponding_f1,
-        "Corresponding AUROC: ",
-        corresponding_auroc,
         "Corresponding AUPR: ",
         corresponding_aupr,
     )
@@ -427,7 +420,7 @@ def train_OT(
         )
 
     val_labels_onehot = to_categorical(val_labels_bycls).to(device)
-    feature_val, _ = model(val_data_bycls)
+    feature_val, _, _ = model(val_data_bycls)
     del val_data_bycls
     for i, batch in enumerate(train_loader):
         inputs, labels, ids = tuple(t for t in batch)
@@ -456,11 +449,10 @@ def train_OT(
                 Attoptimizer, T_max=10, eta_min=0
             )
         for ot_epoch in range(10):
-            # adjust_lr(Attoptimizer, ot_epoch)
-            # print current lr
+            adjust_lr(Attoptimizer, ot_epoch)
             # print("Otloss lr: ", Attoptimizer.param_groups[0]["lr"])
 
-            feature_train, _ = model(inputs)
+            feature_train, _, _ = model(inputs)
             probability_train = softmax_normalize(weights)
 
             if args.cost == "feature":
@@ -507,23 +499,28 @@ def train_OT(
 
         model.train()
         optimizer.zero_grad()
-        _, logits = model(inputs)
+        _, logits, probs = model(inputs)
         loss_train = criterion_classifier(logits, labels.long())
-        _, logits_val = model(val_data)
-        loss_val = F.cross_entropy(logits_val, val_labels.long(), reduction="none")
+        # loss_train = criterion_classifier(logits, labels_onehot)
+        _, logits_val, probs_val = model(val_data)
+        loss_val = F.binary_cross_entropy_with_logits(
+            logits_val, val_labels_onehot, reduction="none"
+        )
+        # TODO: alpha scale to otloss
         loss = torch.sum(loss_train * weights.data) + 10 * torch.mean(loss_val)
         loss.backward(retain_graph=False)
         optimizer.step()
         del weights
 
-        prec_train = accuracy(logits.data, labels, topk=(1,))[0]
-        f1_acc = calc_f1(logits.data, labels)[0]
+        # prec_train = accuracy(logits.data, labels, topk=(1,))[0]
+        prec_train = calc_acc(probs, labels)[0]
+        f1_acc = calc_f1(probs, labels)[0]
         try:
-            au_roc = calc_auroc(logits.data, labels)[0]
+            au_roc = calc_auroc(probs, labels)[0]
         except Exception as ex:
             print("AUROC_ERROR in batch number: ", i, ex.__class__.__name__)
             au_roc = [0.5]
-        au_pr = calc_aupr(logits.data, labels)[0]
+        au_pr = calc_aupr(probs, labels)[0]
 
         otlosses.update(OTloss.item(), labels.size(0))
         losses.update(loss.item(), labels.size(0))
@@ -533,6 +530,7 @@ def train_OT(
         f1.update(f1_acc.item(), labels.size(0))
         auroc.update(au_roc, labels.size(0))
         aupr.update(au_pr.item(), labels.size(0))
+
         if i == len(train_loader) - 1 or i % args.print_freq == 0:
             print(
                 "Epoch: [{0}][{1}/{2}]\t"
@@ -554,8 +552,8 @@ def train_OT(
     wandb.log(
         {
             "train-otloss": otlosses.avg,
-            "loss": losses.avg,
-            "train-loss": train_losses.avg,
+            "overall-loss": losses.avg,
+            "BCE-loss": train_losses.avg,
             "val-loss": val_losses.avg,
             "train-prec1": top1.avg,
             "train-f1": f1.avg,
@@ -596,7 +594,7 @@ def validate(test_loader, model):
         # target_var = torch.autograd.Variable(target)
 
         with torch.no_grad():
-            _, output = model(input)
+            _, output, probs = model(input)
 
         output_numpy = output.data.cpu().numpy()
         preds_output = list(output_numpy.argmax(axis=1))
@@ -605,15 +603,21 @@ def validate(test_loader, model):
         preds += preds_output
 
         targets_var = to_var(target, requires_grad=False).squeeze()
-        loss = torch.tensor(F.cross_entropy(output.data, targets_var, reduction="none"))
-        prec1 = accuracy(output.data, target, topk=(1,))[0]
-        f1_acc = calc_f1(output.data, target)[0]
+        targets_var_onehot = to_categorical(targets_var).to(device)
+        loss = torch.tensor(
+            F.binary_cross_entropy_with_logits(
+                output.data, targets_var_onehot, reduction="none"
+            )
+        )
+        # prec1 = accuracy(output.data, target, topk=(1,))[0]
+        prec1 = calc_acc(probs, target)[0]
+        f1_acc = calc_f1(probs, target)[0]
         try:
-            au_roc = calc_auroc(output.data, target)[0]
+            au_roc = calc_auroc(probs, target)[0]
         except Exception as ex:
             print("AUROC_ERROR in batch number: ", i, ex.__class__.__name__)
             au_roc = [0.5]
-        au_pr = calc_aupr(output.data, target)[0]
+        au_pr = calc_aupr(probs, target)[0]
 
         losses.update(torch.mean(loss), target.size(0))
         top1.update(prec1.item(), target.size(0))
@@ -697,8 +701,7 @@ def build_model(load_pretrain, ckpt_path=None, optimizer_a=None):
         model.load_state_dict(checkpoint["model_state_dict"])
         # optimizer_a.load_state_dict(checkpoint["optimizer"])
         args.start_epoch = checkpoint["epoch"]
-        best_prec1 = checkpoint["best_acc1"]
-        best_f1 = checkpoint["best_f1"]
+        best_auroc = checkpoint["best_auroc"]
 
     return model
 
@@ -806,7 +809,7 @@ def accuracy(output, target, topk=(1,)):
 # top-2: actual class belongs to any of the top-2 probabilities. Accurate
 
 
-def calc_f1(output, target):
+def calc_f1(prob, target):
     """
     It takes the output of the model and the target, and returns the F1 score
 
@@ -814,13 +817,15 @@ def calc_f1(output, target):
     :param target: the ground truth labels
     """
     with torch.no_grad():
-        _, pred = output.topk(1, 1, True, True)
-        pred = pred.t()
+        # prob = F.sigmoid(output)
+        pred = (prob[:, 0] < 0.5).int()
+        pred = pred.view(-1).cpu().detach().numpy()
+        target = target.view(-1).cpu().detach().numpy()
 
-    return [metrics.f1_score(target.cpu(), pred.squeeze(0).cpu(), average="weighted")]
+    return [metrics.f1_score(target, pred, average="macro")]
 
 
-def calc_auroc(output, target):
+def calc_auroc(probabilities, target):
     """
     It calculates the area under the ROC curve (AUROC) for a given model output and target
 
@@ -828,32 +833,22 @@ def calc_auroc(output, target):
     :param target: the ground truth labels
     :return: The area under the ROC curve.
     """
+
     with torch.no_grad():
-        # org_preds = output.softmax(dim=1)
-        # # org_preds = (org_preds[:,0] <0.5).int()
+        # probabilities = F.softmax(output, dim=1)[:, 1]
+        # probabilities = F.sigmoid(output)[:, 1]
+        probabilities = probabilities[:, 1].cpu().detach().numpy()
+        target = target.cpu().detach().numpy()
 
-        # # test_preds = org_preds.view(-1).cpu().detach().numpy()
-        # test_truth = target.view(-1).cpu().detach().numpy()
-
-        # fpr_roc, tpr_roc, thresholds_roc = metrics.roc_curve(
-        #     test_truth, org_preds[:, 1].view(-1).cpu().detach().numpy(), pos_label=1
-        # )
-        # au_roc = metrics.auc(fpr_roc, tpr_roc)
-        # # print("AUC: {}".format(np.round(au_roc,4)))
-        # return [au_roc]
-
-        _, pred = output.topk(1, 1, True, True)
-        pred = pred.t()
-
-    try:
-        au_roc = metrics.roc_auc_score(target.cpu(), pred.squeeze(0).cpu())
-    except:
-        au_roc = 0.5
+        try:
+            au_roc = metrics.roc_auc_score(target, probabilities, average="macro")
+        except:
+            au_roc = 0.5
 
     return [au_roc]
 
 
-def calc_aupr(output, target):
+def calc_aupr(probabilities, target):
     """
     It calculates the area under the precision-recall curve
 
@@ -862,29 +857,25 @@ def calc_aupr(output, target):
     :return: The area under the precision-recall curve.
     """
     with torch.no_grad():
-        # org_preds = output.softmax(dim=1)
-        # # org_preds = (org_preds[:,0] <0.5).int()
+        # probabilities = F.softmax(output, dim=1)[:, 1]
+        # probabilities = F.sigmoid(output)[:, 1]
+        probabilities = probabilities[:, 1].cpu().detach().numpy()
+        target = target.cpu().detach().numpy()
 
-        # # test_preds = org_preds.view(-1).cpu().detach().numpy()
-        # test_truth = target.view(-1).cpu().detach().numpy()
+        precision, recall, _ = metrics.precision_recall_curve(target, probabilities)
 
-        # precision, recall, _ = metrics.precision_recall_curve(
-        #     test_truth, org_preds[:, 1].view(-1).cpu().detach().numpy()
-        # )
-        # au_pr = metrics.auc(recall, precision)
-        # # print("AUPRC: {}".format(np.round(au_pr,4)))
-        # return [au_pr]
-
-        _, pred = output.topk(1, 1, True, True)
-        pred = pred.t()
-
-    precision, recall, _ = metrics.precision_recall_curve(
-        target.cpu(), pred.squeeze(0).cpu()
-    )
-
-    au_pr = metrics.auc(recall, precision)
+        au_pr = metrics.auc(recall, precision)
 
     return [au_pr]
+
+
+def calc_acc(prob, target):
+    # prob = F.sigmoid(output)
+    pred = (prob[:, 0] < 0.5).int()
+    pred = pred.view(-1).cpu().detach().numpy()
+    target = target.view(-1).cpu().detach().numpy()
+
+    return [metrics.accuracy_score(target, pred)]
 
 
 def save_checkpoint(args, state, is_best):

@@ -380,7 +380,7 @@ class MetaLstm(MetaModule):
         self.input_size = self.ignore.input_size
         self.hidden_size = self.ignore.hidden_size
         self.num_layers = self.ignore.num_layers
-        # self.batch_first = ignore.batch_first
+        self.batch_first = True
 
         self.register_buffer(
             "weight_ih_l0", to_var(self.ignore.weight_ih_l0.data, requires_grad=True)
@@ -409,6 +409,7 @@ class MetaLstm(MetaModule):
             "num_layers": self.num_layers,
             "input_size": self.input_size,
             "hidden_size": self.hidden_size,
+            "batch_first": self.batch_first,
         }
         h_all, (h_T, c_T) = nn.utils.stateless.functional_call(
             self.ignore, dict_parms, (x)
@@ -445,13 +446,15 @@ class MBertLstm(MetaModule):
         self.lr = lr
 
         self.ti_enc = MetaLinear(ti_input_size, ti_norm_size)
-        self.ti_enc.apply(_weights_init)
 
-        self.ts_enc = base.Lstm(
-            input_size=ts_input_size,
-            hidden_size=ts_norm_size,
-            n_neurons=n_neurons,
-            num_layers=num_layers,
+        # self.ts_enc = base.Lstm(
+        #     input_size=ts_input_size,
+        #     hidden_size=ts_norm_size,
+        #     n_neurons=n_neurons,
+        #     num_layers=num_layers,
+        # )
+        self.ts_enc = MetaLstm(
+            input_size=ts_input_size, hidden_size=ts_norm_size, num_layers=num_layers
         )
 
         self.nt_enc = base.Bert(pretrained_bert_dir=pretrained_bert_dir)
@@ -461,12 +464,16 @@ class MBertLstm(MetaModule):
         # self.linear = nn.Linear(bert_size, output_size)
         self.linear = MetaLinear(bert_size, output_size)
 
-        self.linear.apply(_weights_init)
+        self.apply(_weights_init)
 
     def forward(self, x):
         ti = self.ti_enc(x[0][0])
         ts = self.ts_enc(x[0][1])
         nt = self.nt_enc(x[1:])
         fusion = self.gate(nt, ti, ts)
-        # return torch.sigmoid(self.pred(fusion)).squeeze(1)
-        return fusion, self.linear(fusion)
+        # return features, logits, predictions
+        return (
+            fusion,
+            self.linear(fusion),
+            torch.sigmoid(self.linear(fusion)).squeeze(1),
+        )

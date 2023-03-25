@@ -118,7 +118,7 @@ class EHRDataset(Dataset):
                 attention_mask = torch.tensor(self.attention_mask[index])
             x = (x, input_ids, token_type_ids, attention_mask)
             y = torch.LongTensor([np.int64(self.y[index])])
-        return x, y, index  
+        return x, y, index
 
     def __len__(self):
         return len(self.y)

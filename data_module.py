@@ -78,7 +78,7 @@ class MimicDataModule(pl.LightningDataModule):
         task: str = "ARF",
         duration: float = 12.0,
         timestep: float = 1.0,
-        batch_size: int = 16,
+        batch_size: int = 40,
         notes: bool = True,
         discrete: bool = False,
         merge: bool = False,

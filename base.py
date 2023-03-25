@@ -256,9 +256,12 @@ class AUROC(pl.LightningModule):
         au_roc = metrics.roc_auc_score(all_y, all_preds)
         au_pr = metrics.auc(*metrics.precision_recall_curve(all_y, all_preds)[1::-1])
         top1_accuracy = metrics.top_k_accuracy_score(all_y, all_preds, k=1)
+        all_preds = (all_preds[:, 0] < 0.5).int()
+        f1_score = metrics.f1_score(all_y, all_preds, average="macro")
         self.log("AUROC", au_roc)
         self.log("AUPR", au_pr)
         self.log("Top1Accuracy", top1_accuracy)
+        self.log("F1Score", f1_score)
 
     def configure_optimizers(self):
         params = self.parameters()
