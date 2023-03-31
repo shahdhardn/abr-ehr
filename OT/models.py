@@ -345,7 +345,7 @@ class ResNet32(MetaModule):
 
 
 class BinaryClassification(MetaModule):
-    def __init__(self, num_classes=2, num_features=4):
+    def __init__(self, num_classes=2, num_features=96):
         super(BinaryClassification, self).__init__()
         self.layer_1 = nn.Linear(num_features, 64)
         self.layer_2 = nn.Linear(64, 64)
@@ -359,15 +359,14 @@ class BinaryClassification(MetaModule):
         # self.batchnorm2 = nn.BatchNorm1d(64)
 
     def forward(self, inputs):
-        inputs = inputs.to(torch.float32)
+        inputs = inputs[0][0].to(torch.float32)
         x = self.relu(self.layer_1(inputs))
         # x = self.batchnorm1(x)
         x = self.layer_2(x)
         # x = self.batchnorm2(x)
         # x = self.dropout(x)
-        y = self.linear(x)
 
-        return x, y
+        return x, self.linear(x), torch.sigmoid(self.linear(x)).squeeze(1)
 
 
 PRETRAIN_CHECKPOINT_PATH = "/l/users/mai.kassem/datasets/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin"
@@ -431,31 +430,29 @@ class MBertLstm(MetaModule):
         ts_norm_size: int = 1024,
         n_neurons: int = 512,
         bert_size: int = 768,
-        output_size: int = 2,
+        output_size: int = 1,
         num_layers: int = 1,
         dropout: int = 0.1,
         num_training_steps: int = 1000,
         warmup_proportion: float = 0.1,
-        lr: float = 5e-5,
         **kwargs: Any
     ) -> None:
         super().__init__()
         # self.save_hyperparameters()
         self.num_training_steps = num_training_steps
         self.warmup_proportion = warmup_proportion
-        self.lr = lr
 
         self.ti_enc = MetaLinear(ti_input_size, ti_norm_size)
 
-        # self.ts_enc = base.Lstm(
-        #     input_size=ts_input_size,
-        #     hidden_size=ts_norm_size,
-        #     n_neurons=n_neurons,
-        #     num_layers=num_layers,
-        # )
-        self.ts_enc = MetaLstm(
-            input_size=ts_input_size, hidden_size=ts_norm_size, num_layers=num_layers
+        self.ts_enc = base.Lstm(
+            input_size=ts_input_size,
+            hidden_size=ts_norm_size,
+            n_neurons=n_neurons,
+            num_layers=num_layers,
         )
+        # self.ts_enc = MetaLstm(
+        #     input_size=ts_input_size, hidden_size=ts_norm_size, num_layers=num_layers
+        # )
 
         self.nt_enc = base.Bert(pretrained_bert_dir=pretrained_bert_dir)
 
@@ -477,3 +474,21 @@ class MBertLstm(MetaModule):
             self.linear(fusion),
             torch.sigmoid(self.linear(fusion)).squeeze(1),
         )
+
+
+class Line(MetaModule):
+    def __init__(
+        self,
+        input_size: int = 96,
+        hidden_size: int = 64,
+        output_size: int = 2,
+        **kwargs: Any
+    ) -> None:
+        super().__init__()
+        self.enc = MetaLinear(input_size, hidden_size)
+        self.linear = MetaLinear(hidden_size, output_size)
+        self.apply(_weights_init)
+
+    def forward(self, x):
+        x = self.enc(x[0][0])
+        return x, self.linear(x), torch.sigmoid(self.linear(x)).squeeze(1)

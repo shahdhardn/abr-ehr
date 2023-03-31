@@ -27,21 +27,12 @@ from models import *
 from data_module import MimicDataModule
 from data_utils import *
 
-from torchmetrics.classification import BinaryAUROC
-
 # Log in to your W&B account
 import wandb
 
 wandb.login()
 
 parser = argparse.ArgumentParser(description="Imbalanced Example")
-# TODO dataset
-# parser.add_argument(
-#     "--dataset",
-#     default="cifar10",
-#     type=str,
-#     help="dataset (cifar10[default] or cifar100)",
-# )
 parser.add_argument(
     "--dataset",
     default="mimic",
@@ -51,12 +42,7 @@ parser.add_argument(
 parser.add_argument(
     "--cost", default="combined", type=str, help="[combined, label, feature, twoloss]"
 )
-# TODO meta set
-# parser.add_argument(
-#     "--meta_set", default="prototype", type=str, help="[whole, prototype]"
-# )
 parser.add_argument("--meta_set", default="whole", type=str, help="[whole, prototype]")
-# TODO change batch size
 parser.add_argument(
     "--batch_size",
     type=int,
@@ -64,20 +50,13 @@ parser.add_argument(
     metavar="N",
     help="input batch size for training (default: 16)",
 )
-# TODO number of classes
-# parser.add_argument("--num_classes", type=int, default=10)
 parser.add_argument("--num_classes", type=int, default=2)
-# TODO number of meta data
 parser.add_argument(
     "--num_meta", type=int, default=10, help="The number of meta data for each class."
 )
 parser.add_argument("--imb_factor", type=float, default=0.08)
-# TODO change number of epochs
-# parser.add_argument(
-#     "--epochs", type=int, default=250, metavar="N", help="number of epochs to train"
-# )
 parser.add_argument(
-    "--epochs", type=int, default=50, metavar="N", help="number of epochs to train"
+    "--epochs", type=int, default=20, metavar="N", help="number of epochs to train"
 )
 parser.add_argument(
     "--start_epoch",
@@ -98,7 +77,7 @@ parser.add_argument(
 # TODO change number according to the number of epochs
 parser.add_argument(
     "--schedule",
-    default=[30, 45],
+    default=[15, 18],
     nargs="*",
     type=int,
     help="learning rate schedule (when to drop lr by 10x)",
@@ -116,9 +95,6 @@ parser.add_argument(
 parser.add_argument(
     "--no_cuda", action="store_true", default=False, help="disables CUDA training"
 )
-# parser.add_argument(ß
-#     "--seed", type=int, default=42, metavar="S", help="random seed (default: 42)"
-# )
 parser.add_argument(
     "--print_freq", "-p", default=100, type=int, help="print frequency (default: 100)"
 )
@@ -191,16 +167,6 @@ del meta_data, meta_labels, meta_class_counts
 np.random.seed(args.seed)
 random.seed(args.seed)
 torch.manual_seed(args.seed)
-classe_labels = range(args.num_classes)
-
-# samples_num_list = get_samples_num_per_cls(
-#     args.dataset,
-#     args.imb_factor,
-#     args.num_meta * args.num_classes,
-#     len(imbalanced_train_loader.dataset.y),
-# )
-# print(samples_num_list)
-# print(sum(samples_num_list))
 
 best_prec1 = 0
 best_f1 = 0
@@ -255,15 +221,6 @@ def main():
     global args, best_prec1, best_auroc, best_aupr, best_f1
     args = parser.parse_args()
 
-    # if args.dataset == "cifar10":
-    #     if args.imb_factor == 0.005:
-    #         ckpt_path = r"checkpoint/ours/pretrain/.."
-
-    # else:
-    #     if args.imb_factor == 0.005:
-    #         ckpt_path = r"checkpoint/ours/pretrain/.."
-    #     else:
-    #         ckpt_path = r"checkpoint/ours/pretrain/.."
     if args.resume:
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
@@ -273,32 +230,32 @@ def main():
             model = build_model(load_pretrain=False, ckpt_path=None)
     else:
         model = build_model(load_pretrain=False, ckpt_path=None)
-    optimizer_a = torch.optim.SGD(
-        [model.linear.weight, model.linear.bias],
-        lr=args.lr,
-        momentum=args.momentum,
-        nesterov=args.nesterov,
-        weight_decay=args.weight_decay,
-    )
+
+    # TODO optimizer
+
+    # optimizer_a = torch.optim.SGD(
+    #     [model.linear.weight, model.linear.bias],
+    #     lr=args.lr,
+    #     momentum=args.momentum,
+    #     nesterov=args.nesterov,
+    #     weight_decay=args.weight_decay,
+    # )
     # optimizer_a = torch.optim.Adam(
     #     [model.linear.weight, model.linear.bias],
     #     lr=args.lr,
     #     weight_decay=args.weight_decay,
     # )
 
-    if args.cos:
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer_a, T_max=10, eta_min=0
-        )
+    # optimizer_a = torch.optim.AdamW(
+    #     [model.linear.weight, model.linear.bias], lr=args.lr
+    # )
+    optimizer_a = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
     cudnn.benchmark = True
-    criterion_classifier = nn.CrossEntropyLoss(reduction="none").to(device)
-    # criterion_classifier = nn.BCEWithLogitsLoss(reduction="none").to(device)
+    # criterion_classifier = nn.CrossEntropyLoss(reduction="none").to(device)
+    criterion_classifier = nn.BCEWithLogitsLoss(reduction="none").to(device)
 
     for epoch in range(args.start_epoch, args.epochs):
-        adjust_lr(optimizer_a, epoch)
-        print("Overall lr: ", optimizer_a.param_groups[0]["lr"])
-
         train_OT(
             imbalanced_train_loader,
             meta_loader,
@@ -308,11 +265,11 @@ def main():
             epoch,
             criterion_classifier,
         )
-        if args.cos:
-            scheduler.step()
-            # print current lr
-            print("Overall lr: ", scheduler.get_lr())
 
+        # if epoch > 1:
+        #     test_model = combine_models(model)
+        #     prec1, f1, auroc, aupr, preds, gt_labels = validate(test_loader, test_model)
+        # else:
         prec1, f1, auroc, aupr, preds, gt_labels = validate(test_loader, model)
 
         is_best = auroc > best_auroc
@@ -357,27 +314,6 @@ def main():
     wandb.finish()
 
 
-def adjust_lr(optimizer, epoch):
-    """Decay the learning rate based on schedule"""
-    lr = args.lr
-    if epoch < args.warmup_epochs:
-        lr = lr / args.warmup_epochs * (epoch + 1)
-    elif args.cos:  # cosine lr schedule
-        lr *= 0.5 * (
-            1.0
-            + math.cos(
-                math.pi
-                * (epoch - args.warmup_epochs + 1)
-                / (args.epochs - args.warmup_epochs + 1)
-            )
-        )
-    else:  # stepwise lr schedule
-        for milestone in args.schedule:
-            lr *= 0.1 if epoch >= milestone else 1.0
-    for param_group in optimizer.param_groups:
-        param_group["lr"] = lr
-
-
 def train_OT(
     train_loader,
     validation_loader,
@@ -395,6 +331,18 @@ def train_OT(
     f1 = AverageMeter()
     auroc = AverageMeter()
     aupr = AverageMeter()
+
+    if args.cos:
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=10, eta_min=1e-6
+        )
+        # max_epoch = lr_lambda(epoch)
+        # scheduler = torch.optim.lr_scheduler.LambdaLR(
+        #     optimizer, lr_lambda=lambda epoch: max_epoch
+        # )
+    else:
+        adjust_lr(optimizer, epoch)
+        print("Overall lr: ", optimizer.param_groups[0]["lr"])
 
     model.train()
 
@@ -434,23 +382,23 @@ def train_OT(
         labels_onehot = to_categorical(labels).to(device)
 
         weights = to_var(weightsbuffer[ids])
-        model.eval()
-        Attoptimizer = torch.optim.SGD(
-            [weights],
-            lr=args.lr,
-            momentum=args.momentum,
-            weight_decay=args.weight_decay,
-        )
-        # Attoptimizer = torch.optim.Adam(
-        #     [weights], lr=args.lr, weight_decay=args.weight_decay
+        # model.eval()
+        # Attoptimizer = torch.optim.SGD(
+        #     [weights],
+        #     lr=args.lr,
+        #     momentum=args.momentum,
+        #     weight_decay=args.weight_decay,
         # )
-        if args.cos:
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                Attoptimizer, T_max=10, eta_min=0
-            )
+        Attoptimizer = torch.optim.Adam(
+            [weights], lr=args.lr, weight_decay=args.weight_decay
+        )
+        # if args.cos:
+        ot_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            Attoptimizer, T_max=10, eta_min=1e-6
+        )
         for ot_epoch in range(10):
-            adjust_lr(Attoptimizer, ot_epoch)
-            # print("Otloss lr: ", Attoptimizer.param_groups[0]["lr"])
+            # if not args.cos:
+            # adjust_lr(Attoptimizer, ot_epoch)
 
             feature_train, _, _ = model(inputs)
             probability_train = softmax_normalize(weights)
@@ -491,25 +439,30 @@ def train_OT(
             Attoptimizer.zero_grad()
             OTloss.backward(retain_graph=False)
             Attoptimizer.step()
-            if args.cos:
-                scheduler.step()
-                # print("OTloss lr: ", scheduler.get_lr())
+            # if args.cos:
+            ot_scheduler.step()
 
         weightsbuffer[ids] = weights.data
 
         model.train()
         optimizer.zero_grad()
         _, logits, probs = model(inputs)
-        loss_train = criterion_classifier(logits, labels.long())
-        # loss_train = criterion_classifier(logits, labels_onehot)
+        loss_train = criterion_classifier(logits.squeeze(1), labels.float())
         _, logits_val, probs_val = model(val_data)
         loss_val = F.binary_cross_entropy_with_logits(
-            logits_val, val_labels_onehot, reduction="none"
+            logits_val.squeeze(1), val_labels.float(), reduction="none"
         )
         # TODO: alpha scale to otloss
-        loss = torch.sum(loss_train * weights.data) + 10 * torch.mean(loss_val)
+        # loss = torch.sum(loss_train * weightsbuffer[ids]) + 10 * torch.mean(loss_val)
+        # loss = torch.sum(loss_train)
+        loss = torch.mean(loss_train) + 0.5 * OTloss.item()
         loss.backward(retain_graph=False)
         optimizer.step()
+        if args.cos:
+            scheduler.step()
+            # print current lr
+            print("Overall lr: ", scheduler.get_lr())
+
         del weights
 
         # prec_train = accuracy(logits.data, labels, topk=(1,))[0]
@@ -530,6 +483,7 @@ def train_OT(
         f1.update(f1_acc.item(), labels.size(0))
         auroc.update(au_roc, labels.size(0))
         aupr.update(au_pr.item(), labels.size(0))
+        del prec_train, f1_acc, au_roc, au_pr
 
         if i == len(train_loader) - 1 or i % args.print_freq == 0:
             print(
@@ -553,7 +507,7 @@ def train_OT(
         {
             "train-otloss": otlosses.avg,
             "overall-loss": losses.avg,
-            "BCE-loss": train_losses.avg,
+            "CE-loss": train_losses.avg,
             "val-loss": val_losses.avg,
             "train-prec1": top1.avg,
             "train-f1": f1.avg,
@@ -585,13 +539,13 @@ def validate(test_loader, model):
         )
 
         # # input_var = torch.autograd.Variable(input)
-        # input_var[0][0] = torch.autograd.Variable(input_var[0][0])
-        # input_var[0][1] = torch.autograd.Variable(input_var[0][1])
-        # input_var[1] = torch.autograd.Variable(input_var[1])
-        # input_var[2] = torch.autograd.Variable(input_var[2])
-        # input_var[3] = torch.autograd.Variable(input_var[3])
+        # input[0][0] = torch.autograd.Variable(input[0][0])
+        # input[0][1] = torch.autograd.Variable(input[0][1])
+        # input[1] = torch.autograd.Variable(input[1])
+        # input[2] = torch.autograd.Variable(input[2])
+        # input[3] = torch.autograd.Variable(input[3])
 
-        # target_var = torch.autograd.Variable(target)
+        # target = torch.autograd.Variable(target)
 
         with torch.no_grad():
             _, output, probs = model(input)
@@ -606,7 +560,7 @@ def validate(test_loader, model):
         targets_var_onehot = to_categorical(targets_var).to(device)
         loss = torch.tensor(
             F.binary_cross_entropy_with_logits(
-                output.data, targets_var_onehot, reduction="none"
+                output.data.squeeze(1), targets_var.float(), reduction="none"
             )
         )
         # prec1 = accuracy(output.data, target, topk=(1,))[0]
@@ -624,6 +578,8 @@ def validate(test_loader, model):
         f1.update(f1_acc.item(), target.size(0))
         auroc.update(au_roc, target.size(0))
         aupr.update(au_pr.item(), target.size(0))
+
+        del prec1, f1_acc, au_roc, au_pr
 
         batch_time.update(time.time() - end)
         end = time.time()
@@ -695,7 +651,18 @@ def build_model(load_pretrain, ckpt_path=None, optimizer_a=None):
             torch.backends.cudnn.benchmark = True
         else:
             model = MBertLstm()
-
+    if args.model == "Line":
+        if use_cuda:
+            model = _CustomDataParallel(Line()).to(device)
+            torch.backends.cudnn.benchmark = True
+        else:
+            model = Line()
+    if args.model == "BinaryClassification":
+        if use_cuda:
+            model = _CustomDataParallel(BinaryClassification()).to(device)
+            torch.backends.cudnn.benchmark = True
+        else:
+            model = BinaryClassification()
     if load_pretrain == True:
         checkpoint = torch.load(ckpt_path)
         model.load_state_dict(checkpoint["model_state_dict"])
@@ -704,6 +671,24 @@ def build_model(load_pretrain, ckpt_path=None, optimizer_a=None):
         best_auroc = checkpoint["best_auroc"]
 
     return model
+
+
+def combine_models(current_model):
+    path = "checkpoint/ours/"
+    save_name = args.save_name
+    best_ckpt_path = path + save_name + "_best_ckpt.pth.tar"
+    last_ckpt_path = path + save_name + "_last_ckpt.pth.tar"
+    best_model_state_dict = torch.load(best_ckpt_path)["state_dict"]
+    last_model_state_dict = torch.load(last_ckpt_path)["state_dict"]
+
+    combined_state_dict = {
+        k: (best_model_state_dict[k] + last_model_state_dict[k]) / 2
+        for k in best_model_state_dict.keys() & last_model_state_dict.keys()
+    }
+    # Load the combined state dict
+    current_model.load_state_dict(combined_state_dict)
+
+    return current_model
 
 
 def to_var(y, requires_grad=True):
@@ -726,10 +711,18 @@ def to_var_x(x, requires_grad=True):
         bert_sent_type = bert_sent_type.to(device)
         bert_sent_mask = bert_sent_mask.to(device)
 
+    # if requires_grad:
+    #     return (
+    #         torch.autograd.Variable(ti),
+    #         torch.autograd.Variable(ts),
+    #         torch.autograd.Variable(bert_sent),
+    #         torch.autograd.Variable(bert_sent_type),
+    #         torch.autograd.Variable(bert_sent_mask),
+    #     )
     if requires_grad:
         return (
-            torch.autograd.Variable(ti),
-            torch.autograd.Variable(ts),
+            Variable(ti, requires_grad=requires_grad),
+            Variable(ts, requires_grad=requires_grad),
             torch.autograd.Variable(bert_sent),
             torch.autograd.Variable(bert_sent_type),
             torch.autograd.Variable(bert_sent_mask),
@@ -816,11 +809,12 @@ def calc_f1(prob, target):
     :param output: the output of the model, which is a tensor of shape (batch_size, num_classes)
     :param target: the ground truth labels
     """
-    with torch.no_grad():
-        # prob = F.sigmoid(output)
-        pred = (prob[:, 0] < 0.5).int()
-        pred = pred.view(-1).cpu().detach().numpy()
-        target = target.view(-1).cpu().detach().numpy()
+    # with torch.no_grad():
+    # prob = F.sigmoid(output)
+    # pred = (prob[:, 0] > 0.5).int()
+    pred = (prob > 0.5).int()
+    pred = pred.view(-1).cpu().detach().numpy()
+    target = target.view(-1).cpu().detach().numpy()
 
     return [metrics.f1_score(target, pred, average="macro")]
 
@@ -834,16 +828,17 @@ def calc_auroc(probabilities, target):
     :return: The area under the ROC curve.
     """
 
-    with torch.no_grad():
-        # probabilities = F.softmax(output, dim=1)[:, 1]
-        # probabilities = F.sigmoid(output)[:, 1]
-        probabilities = probabilities[:, 1].cpu().detach().numpy()
-        target = target.cpu().detach().numpy()
+    # with torch.no_grad():
+    # probabilities = F.softmax(output, dim=1)[:, 1]
+    # probabilities = F.sigmoid(output)[:, 1]
+    # probabilities = probabilities[:, 1].cpu().detach().numpy()
+    probabilities = probabilities.cpu().detach().numpy()
+    target = target.cpu().detach().numpy()
 
-        try:
-            au_roc = metrics.roc_auc_score(target, probabilities, average="macro")
-        except:
-            au_roc = 0.5
+    try:
+        au_roc = metrics.roc_auc_score(target, probabilities, average="macro")
+    except:
+        au_roc = 0.5
 
     return [au_roc]
 
@@ -856,24 +851,28 @@ def calc_aupr(probabilities, target):
     :param target: the ground truth labels
     :return: The area under the precision-recall curve.
     """
-    with torch.no_grad():
-        # probabilities = F.softmax(output, dim=1)[:, 1]
-        # probabilities = F.sigmoid(output)[:, 1]
-        probabilities = probabilities[:, 1].cpu().detach().numpy()
-        target = target.cpu().detach().numpy()
+    # with torch.no_grad():
+    # probabilities = F.softmax(output, dim=1)[:, 1]
+    # probabilities = F.sigmoid(output)[:, 1]
+    # probabilities = probabilities[:, 1].cpu().detach().numpy()
+    probabilities = probabilities.cpu().detach().numpy()
+    target = target.cpu().detach().numpy()
 
-        precision, recall, _ = metrics.precision_recall_curve(target, probabilities)
+    precision, recall, _ = metrics.precision_recall_curve(target, probabilities)
 
-        au_pr = metrics.auc(recall, precision)
+    au_pr = metrics.auc(recall, precision)
 
     return [au_pr]
 
 
 def calc_acc(prob, target):
     # prob = F.sigmoid(output)
-    pred = (prob[:, 0] < 0.5).int()
+    # pred = (prob[:, 0] > 0.5).int()
+    pred = (prob > 0.5).int()
     pred = pred.view(-1).cpu().detach().numpy()
     target = target.view(-1).cpu().detach().numpy()
+    print("max prob:", prob.max())
+    print("min prob:", prob.min())
 
     return [metrics.accuracy_score(target, pred)]
 
@@ -883,9 +882,11 @@ def save_checkpoint(args, state, is_best):
     save_name = args.save_name
     if not os.path.exists(path):
         os.makedirs(path)
-    filename = path + save_name + "_ckpt.pth.tar"
     if is_best:
-        torch.save(state, filename)
+        filename = path + save_name + "_best_ckpt.pth.tar"
+    else:
+        filename = path + save_name + "_last_ckpt.pth.tar"
+    torch.save(state, filename)
 
 
 def to_categorical(labels):
@@ -894,6 +895,44 @@ def to_categorical(labels):
         labels_onehot[label_epoch, labels[label_epoch]] = 1
 
     return labels_onehot
+
+
+def adjust_lr(optimizer, epoch):
+    """Decay the learning rate based on schedule"""
+    lr = args.lr
+    if epoch < args.warmup_epochs:
+        lr = lr / args.warmup_epochs * (epoch + 1)
+    elif args.cos:  # cosine lr schedule
+        lr *= 0.5 * (
+            1.0
+            + math.cos(
+                math.pi
+                * (epoch - args.warmup_epochs + 1)
+                / (args.epochs - args.warmup_epochs + 1)
+            )
+        )
+    else:  # stepwise lr schedule
+        for milestone in args.schedule:
+            lr *= 0.1 if epoch >= milestone else 1.0
+    for param_group in optimizer.param_groups:
+        param_group["lr"] = lr
+
+
+def lr_lambda(current_epoch):
+    current_step = (
+        current_epoch * len(imbalanced_train_loader.dataset.y) // args.batch_size
+    )
+    num_training_steps = (
+        args.epochs * len(imbalanced_train_loader.dataset.y) // args.batch_size
+    )
+    num_warmup_steps = int(num_training_steps * 0.1)
+    if current_step < num_warmup_steps:
+        return float(current_step) / float(max(1, num_warmup_steps))
+    return max(
+        0.0,
+        float(num_training_steps - current_step)
+        / float(max(1, num_training_steps - num_warmup_steps)),
+    )
 
 
 if __name__ == "__main__":
