@@ -455,7 +455,7 @@ def train_OT(
         # TODO: alpha scale to otloss
         # loss = torch.sum(loss_train * weightsbuffer[ids]) + 10 * torch.mean(loss_val)
         # loss = torch.sum(loss_train)
-        loss = torch.mean(loss_train) + 0.5 * OTloss.item()
+        loss = torch.mean(loss_train) + OTloss.item()
         loss.backward(retain_graph=False)
         optimizer.step()
         if args.cos:

@@ -228,11 +228,11 @@ class Bert(base.BertAUROC):
         parser.add_argument("--lr", type=float, default=1e-5)
         return parser
 
-
+# pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
 class MBertLstm(base.BertAUROC):
     def __init__(
         self,
-        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
+        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/BioClinicalBERT_pytorch_model.bin",
         ti_input_size: int = 96,
         ti_norm_size: int = 64,
         ts_input_size: int = 5132,
