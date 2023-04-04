@@ -62,7 +62,7 @@ def main(args):
             ModelCheckpoint(
                 monitor="score",
                 mode="max",
-                dirpath=f"/l/users/mai.kassem/datasets/ClinicalBERT_checkpoint/",
+                dirpath=f"/l/users/mai.kassem/datasets/",
                 filename="{epoch}--{step}--{name}",
             ),
         ],

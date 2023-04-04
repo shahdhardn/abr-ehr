@@ -922,10 +922,12 @@ def lr_lambda(current_epoch):
     current_step = (
         current_epoch * len(imbalanced_train_loader.dataset.y) // args.batch_size
     )
-    num_training_steps = (
-        args.epochs * len(imbalanced_train_loader.dataset.y) // args.batch_size
-    )
-    num_warmup_steps = int(num_training_steps * 0.1)
+    # num_training_steps = (
+    #     args.epochs * len(imbalanced_train_loader.dataset.y) // args.batch_size
+    # )
+    num_training_steps = 1000
+    num_warmup_steps = 0.1
+    # num_warmup_steps = int(num_training_steps * 0.1)
     if current_step < num_warmup_steps:
         return float(current_step) / float(max(1, num_warmup_steps))
     return max(

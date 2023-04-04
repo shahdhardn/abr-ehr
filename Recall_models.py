@@ -572,7 +572,7 @@ class MBertCnn(base.BertRecall):
 
 class MCnnBert(base.BertRecall):
     def __init__(self,
-                 pretrained_bert_dir: str = '/home/shahad.hardan/Documents/ABR_Research/mimic_emnlp/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint',
+                 pretrained_bert_dir: str = '/l/users/mai.kassem/datasets/BlueBERT_PubMed_pytorch_model.bin',
                  ti_input_size: int = 96,
                  ti_norm_size: int = 64,
                  ts_input_size: int = 4816,

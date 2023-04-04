@@ -196,7 +196,7 @@ class Cnn(base.AUROC):
 class Bert(base.BertAUROC):
     def __init__(
         self,
-        pretrained_bert_dir: str = "/home/shahad.hardan/Documents/ABR_Research/mimic_emnlp/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin/pytorch_model.bin",
+        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/BlueBERT_PubMed_pytorch_model.bin",
         bert_size: int = 768,
         output_size: int = 1,
         num_training_steps: int = 1000,
@@ -222,13 +222,16 @@ class Bert(base.BertAUROC):
         parser.add_argument(
             "--pretrained_bert_dir",
             type=str,
-            default="/home/shahad.hardan/Documents/ABR_Research/mimic_emnlp/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin/pytorch_model.bin",
+            default="/l/users/mai.kassem/datasets/BlueBERT_PubMed_pytorch_model.bin",
         )
         parser.add_argument("--freeze", type=tuple, default=())
         parser.add_argument("--lr", type=float, default=1e-5)
         return parser
 
-# pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
+
+# /l/users/mai.kassem/datasets/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin
+# /l/users/mai.kassem/datasets/BlueBERT_PubMed_pytorch_model.bin
+# /l/users/mai.kassem/datasets/BioClinicalBERT_pytorch_model.bin
 class MBertLstm(base.BertAUROC):
     def __init__(
         self,
@@ -292,8 +295,7 @@ class MBertLstm(base.BertAUROC):
 class MLstmBert(base.BertAUROC):
     def __init__(
         self,
-        pretrained_bert_dir: str = "/home/shahad.hardan/Documents/ABR_Research/mimic_emnlp/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
-        ti_input_size: int = 96,
+        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/BlueBERT_PubMed_pytorch_model.bin",
         ti_norm_size: int = 64,
         ts_input_size: int = 5132,
         ts_norm_size: int = 1024,
@@ -352,7 +354,7 @@ class MLstmBert(base.BertAUROC):
 class MBertStar(base.BertAUROC):
     def __init__(
         self,
-        pretrained_bert_dir: str = "/home/shahad.hardan/Documents/ABR_Research/mimic_emnlp/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
+        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/BlueBERT_PubMed_pytorch_model.bin",
         ti_input_size: int = 96,
         ti_norm_size: int = 64,
         ts_input_size: int = 5132,
@@ -413,7 +415,7 @@ class MBertStar(base.BertAUROC):
 class MStarBert(base.BertAUROC):
     def __init__(
         self,
-        pretrained_bert_dir: str = "/home/shahad.hardan/Documents/ABR_Research/mimic_emnlp/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
+        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/BlueBERT_PubMed_pytorch_model.bin",
         ti_input_size: int = 96,
         ti_norm_size: int = 64,
         ts_input_size: int = 5132,
@@ -474,7 +476,7 @@ class MStarBert(base.BertAUROC):
 class MBertEncoder(base.BertAUROC):
     def __init__(
         self,
-        pretrained_bert_dir: str = "/home/shahad.hardan/Documents/ABR_Research/mimic_emnlp/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
+        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/BlueBERT_PubMed_pytorch_model.bin",
         ti_input_size: int = 96,
         ti_norm_size: int = 64,
         ts_input_size: int = 5132,
@@ -529,7 +531,7 @@ class MBertEncoder(base.BertAUROC):
 class MEncoderBert(base.BertAUROC):
     def __init__(
         self,
-        pretrained_bert_dir: str = "/home/shahad.hardan/Documents/ABR_Research/mimic_emnlp/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
+        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/BlueBERT_PubMed_pytorch_model.bin",
         ti_input_size: int = 96,
         ti_norm_size: int = 64,
         ts_input_size: int = 5132,
@@ -584,7 +586,7 @@ class MEncoderBert(base.BertAUROC):
 class MBertCnn(base.BertAUROC):
     def __init__(
         self,
-        pretrained_bert_dir: str = "/home/shahad.hardan/Documents/ABR_Research/mimic_emnlp/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
+        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/BlueBERT_PubMed_pytorch_model.bin",
         ti_input_size: int = 96,
         ti_norm_size: int = 64,
         ts_input_size: int = 4816,
@@ -718,7 +720,7 @@ class MCnnBert(base.BertAUROC):
 class LstmBertAttn(base.BertAUROC):
     def __init__(
         self,
-        pretrained_bert_dir: str = "/home/shahad.hardan/Documents/ABR_Research/mimic_emnlp/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
+        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/BlueBERT_PubMed_pytorch_model.bin",
         ts_input_size: int = 5132,
         ts_norm_size: int = 1024,
         n_neurons: int = 512,
@@ -771,7 +773,7 @@ class LstmBertAttn(base.BertAUROC):
 class BertLstmAttn(base.BertAUROC):
     def __init__(
         self,
-        pretrained_bert_dir: str = "/home/shahad.hardan/Documents/ABR_Research/mimic_emnlp/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin",
+        pretrained_bert_dir: str = "/l/users/mai.kassem/datasets/BlueBERT_PubMed_pytorch_model.bin",
         ts_input_size: int = 4816,
         ts_norm_size: int = 1024,
         n_neurons: int = 512,
