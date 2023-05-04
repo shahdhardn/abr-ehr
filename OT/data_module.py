@@ -5,6 +5,7 @@ from typing import Optional
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Subset
 from torch.utils.data.sampler import WeightedRandomSampler
 import pytorch_lightning as pl
 import pandas as pd
@@ -13,6 +14,12 @@ from transformers import BertTokenizer
 from pandarallel import pandarallel
 import h5py
 import copy
+
+
+class LabeledSubset(Subset):
+    def __getitem__(self, index):
+        x, y = super().__getitem__(index)
+        return x, y, index
 
 
 # class EHRDataset(Dataset):
@@ -145,7 +152,6 @@ class MimicDataModule(pl.LightningDataModule):
         num_workers: int = 12,
         **kwargs: Any,
     ) -> None:
-
         super().__init__()
         self.mimic_dir = Path(mimic_dir)
         self.data_dir = Path(data_dir)
@@ -301,7 +307,6 @@ class MimicDataModule(pl.LightningDataModule):
             id_texts = id_texts.drop(columns="TIME").reset_index()
             return id_texts
         else:
-
             df["VARNAME"] = df[["CATEGORY", "DESCRIPTION"]].apply(
                 lambda x: x.CATEGORY + "/" + x.DESCRIPTION, axis=1
             )
@@ -371,7 +376,6 @@ class MimicDataModule(pl.LightningDataModule):
             columns={"ID": "ICUSTAY_ID", f"{self.task}_LABEL": "LABEL"}
         )
         if self.notes:
-
             if self.discrete:
                 text_feats = pd.read_hdf(self.task_dir / "notes.hdf5", "discrete_notes")
             else:
@@ -415,7 +419,6 @@ class MimicDataModule(pl.LightningDataModule):
                 self.split(file, k)
 
     def prepare_data(self):
-
         self.xs_hdf5()
         if self.notes:
             self.note_hdf5()
@@ -441,6 +444,20 @@ class MimicDataModule(pl.LightningDataModule):
         hf.close()
 
     def train_dataloader(self):
+        # # target = self.train.y
+        # # class_sample_count = np.array(
+        # #     [len(np.where(target == t)[0]) for t in np.unique(target)]
+        # # )
+        # # weight = 1.0 / class_sample_count
+        # # samples_weight = np.array([weight[t] for t in target])
+        # # samples_weight = torch.from_numpy(samples_weight)
+        # # samples_weight = samples_weight.double()
+        # # sampler = WeightedRandomSampler(
+        # #     weights=samples_weight, num_samples=1400, replacement=True
+        # # )
+        # minority_indices = [i for i, (x, y, idx) in enumerate(self.train) if y == 1]
+        # minority_dataset = LabeledSubset(self.train, minority_indices)
+        # # minority_dataset = [self.train[i] for i in minority_indices]
         return DataLoader(
             self.train,
             batch_size=self.batch_size,

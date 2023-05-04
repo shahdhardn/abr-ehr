@@ -73,7 +73,6 @@ class MetaModule(nn.Module):
                 tmp = param_t - lr_inner * grad
                 self.set_param(self, name_t, tmp)
         else:
-
             for name, param in self.named_params(self):
                 if not detach:
                     grad = param.grad
@@ -369,7 +368,7 @@ class BinaryClassification(MetaModule):
         return x, self.linear(x), torch.sigmoid(self.linear(x)).squeeze(1)
 
 
-PRETRAIN_CHECKPOINT_PATH = "/l/users/mai.kassem/datasets/ClinicalBERT_checkpoint/ClinicalBERT_pretraining_pytorch_checkpoint/pytorch_model.bin"
+PRETRAIN_CHECKPOINT_PATH = "/l/users/mai.kassem/datasets/ClinicalBERT_pytorch_model.bin"
 
 
 class MetaLstm(MetaModule):
@@ -474,6 +473,11 @@ class MBertLstm(MetaModule):
             self.linear(fusion),
             torch.sigmoid(self.linear(fusion)).squeeze(1),
         )
+        # return (
+        #     ti,
+        #     self.linear(ti),
+        #     torch.sigmoid(self.linear(ti)).squeeze(1),
+        # )
 
 
 class Line(MetaModule):
